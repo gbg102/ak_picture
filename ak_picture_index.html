@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ak_picture · 이미지 검색</title>
+<style>
+html,body { height:100%; margin:0; }
+:root {
+  --bg:#0f0f13; --panel:#1a1a22; --panel2:#22222c; --border:#2e2e3a;
+  --text:#e8e8ef; --muted:#9a9aad; --accent:#ff4d6d; --highlight:#2a2a38;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:"Segoe UI","Noto Sans KR","Hiragino Sans",sans-serif;
+  background:var(--bg); color:var(--text); height:100vh; overflow:hidden; }
+header { height:56px; flex-shrink:0; background:var(--panel);
+  border-bottom:1px solid var(--border); display:flex; align-items:center;
+  padding:0 20px; gap:16px; }
+header h1 { font-size:1.15rem; font-weight:600; }
+header h1 span { color:var(--accent); }
+.btn { background:var(--panel2); border:1px solid var(--border); color:var(--text);
+  border-radius:6px; padding:6px 12px; font-size:.82rem; cursor:pointer; white-space:nowrap; }
+.btn:hover { border-color:var(--accent); color:var(--accent); }
+.btn.primary { background:rgba(255,77,109,.15); border-color:#ff4d6d88; color:#ff8fa3; }
+main { height:calc(100vh - 56px); display:flex; overflow:hidden; }
+.image-search-layout { display:grid; grid-template-columns:var(--img-tree-width,300px) 8px minmax(0,1fr); flex:1; min-height:0; height:100%; overflow:hidden; }
+.image-search-tree { width:auto; min-width:150px; max-width:none; background:var(--panel);
+  border-right:1px solid var(--border); overflow:auto; padding:10px 8px 16px;
+  flex-shrink:0; font-size:.85rem; }
+.img-search-splitter { width:8px; cursor:col-resize; background:var(--border); position:relative; user-select:none; touch-action:none; }
+.img-search-splitter:hover, .img-search-splitter.dragging { background:var(--accent); }
+.img-search-splitter::after { content:"⋮"; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:var(--muted); font-size:16px; }
+.image-search-tree .tree-title { font-size:.78rem; color:var(--muted); padding:4px 8px 8px; }
+.root-title { display:flex; align-items:center; gap:6px; }
+.root-title > span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.root-select-btn { flex-shrink:0; padding:5px 9px; font-size:.75rem; }
+.image-search-tree .tree-fav-bar { padding:0 6px 10px; border-bottom:1px solid var(--border); margin-bottom:8px; display:flex; gap:6px; }
+.image-search-tree .tree-fav-bar .btn { flex:1; justify-content:center; }
+.image-search-tree .tree-fav-bar .btn.active { border-color:var(--accent); color:var(--accent); background:rgba(255,77,109,.16); }
+.image-search-tree .tree-view-mode-bar { display:flex; align-items:center; gap:8px; padding:0 6px 10px; border-bottom:1px solid var(--border); margin-bottom:8px; color:var(--muted); }
+.image-search-tree .view-mode-combo { flex:1; display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--panel2); }
+.image-search-tree .view-mode-combo button { flex:1; border:0; background:transparent; color:var(--muted); padding:6px 8px; cursor:pointer; }
+.image-search-tree .view-mode-combo button+button { border-left:1px solid var(--border); }
+.image-search-tree .view-mode-combo button.active { color:var(--accent); background:rgba(255,77,109,.18); font-weight:600; }
+.image-search-tree .tree-item { display:flex; align-items:center; gap:6px; width:100%; text-align:left;
+  border:0; background:transparent; color:var(--text); padding:6px 8px; border-radius:6px; cursor:pointer; line-height:1.3; }
+.image-search-tree .tree-item:hover { background:rgba(255,77,109,.12); }
+.image-search-tree .tree-item.active { background:rgba(255,77,109,.20); color:var(--accent); font-weight:600; }
+.image-search-tree .tree-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.image-search-tree .tree-count { color:var(--muted); font-size:.75rem; font-variant-numeric:tabular-nums; }
+.image-search-tree .tree-twist { flex-shrink:0; width:1.1em; text-align:center; color:var(--muted); font-size:.75rem; }
+.image-search-tree .tree-twist.is-leaf { visibility:hidden; }
+.image-search-tree .tree-ico { flex-shrink:0; width:1.25em; text-align:center; }
+.tree-empty { padding:10px 8px; color:var(--muted); font-size:.8rem; }
+.image-search-main { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; padding:12px 14px 16px; }
+.inline-orient-tabs { display:flex; justify-content:center; gap:6px; margin:0 0 12px; flex-wrap:wrap; }
+.inline-orient-tabs .orient-tab { border:1px solid var(--border); background:var(--panel2); color:var(--muted);
+  border-radius:999px; padding:6px 14px; font-size:.82rem; cursor:pointer; }
+.inline-orient-tabs .orient-tab.active { border-color:var(--accent); color:var(--accent); background:rgba(255,77,109,.16); font-weight:600; }
+.inline-size-controls { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+.inline-size-controls label { font-size:.82rem; color:var(--muted); }
+.inline-size-controls input[type=range] { width:160px; accent-color:var(--accent); }
+.inline-size-controls .size-val { min-width:52px; color:var(--accent); font-weight:600; font-size:.9rem; }
+.inline-gallery-status { font-size:.82rem; color:var(--muted); margin-bottom:10px; text-align:center; }
+.inline-gallery { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; overflow-y:auto; flex:1; min-height:0; align-content:flex-start; }
+.inline-gallery-item { display:flex; flex-direction:column; align-items:center; width:160px; max-width:100%; }
+.inline-gallery-item[data-hidden="1"] { display:none!important; }
+.inline-gallery-item img { width:100%; height:auto; object-fit:contain; border-radius:8px; border:1px solid var(--border); background:var(--panel); cursor:pointer; }
+.inline-gallery-item img:hover { box-shadow:0 0 0 2px var(--accent); }
+.inline-gallery-caption { margin-top:6px; font-size:.72rem; color:var(--muted); text-align:center; word-break:break-all; line-height:1.35; }
+.inline-gallery-meta { text-align:center; font-size:.72rem; color:var(--muted); white-space:nowrap; }
+.inline-gallery.list-mode { display:flex!important; flex-direction:column!important; flex-wrap:nowrap!important; gap:12px; align-items:center; justify-content:flex-start; }
+.inline-gallery.list-mode .inline-gallery-item { width:var(--list-item-w,90%)!important; max-width:var(--list-item-w,90%)!important; flex:0 0 auto!important; align-items:stretch; gap:6px; padding:8px; background:var(--panel2); border:1px solid var(--border); border-radius:10px; }
+.inline-gallery.list-mode .inline-gallery-item img { width:100%!important; height:auto!important; max-width:100%; }
+.inline-gallery.list-mode .inline-gallery-caption { text-align:center; font-size:.85rem; white-space:normal; }
+.inline-size-controls.is-hidden-list { display:none!important; }
+.actress-folder-list { display:flex; flex-direction:column; gap:4px; padding:8px 10px 20px; width:100%; }
+.actress-folder-row { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; text-align:left; padding:10px 12px;
+  border:1px solid var(--border); border-radius:8px; background:var(--panel); color:var(--text); cursor:pointer; font-size:.92rem; }
+.actress-folder-row:hover { border-color:var(--accent); background:var(--panel2); }
+.actress-folder-row .afr-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.actress-folder-row .afr-count { flex-shrink:0; color:var(--muted); font-size:.85rem; }
+.toast { position:fixed; bottom:24px; right:24px; background:var(--panel); border:1px solid var(--accent);
+  color:var(--text); padding:12px 18px; border-radius:8px; z-index:999; opacity:0; pointer-events:none; transition:opacity .2s; }
+.toast.show { opacity:1; }
+.inline-lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:99999; overflow:auto; user-select:none; }
+.inline-lightbox.open { display:block; }
+.inline-lightbox .lb-stage { display:flex; align-items:center; justify-content:center; min-width:100%; min-height:100%; padding:48px 56px 56px; }
+.inline-lightbox img.lb-img { display:block; max-width:none; max-height:none; width:auto; height:auto; object-fit:contain; border-radius:6px; cursor:grab; }
+.inline-lightbox img.lb-img:active { cursor:grabbing; }
+.inline-lightbox .lb-close,.inline-lightbox .lb-nav,.inline-lightbox .lb-meta { position:fixed; z-index:100000; }
+.inline-lightbox .lb-close { top:14px; right:18px; font-size:1.5rem; color:#fff; cursor:pointer; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.25); border-radius:8px; width:40px; height:40px; }
+.inline-lightbox .lb-nav { top:50%; transform:translateY(-50%); width:48px; height:64px; border:1px solid rgba(255,255,255,.28); background:rgba(0,0,0,.5); color:#fff; font-size:1.6rem; border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.inline-lightbox .lb-prev { left:16px; } .inline-lightbox .lb-next { right:16px; }
+.inline-lightbox .lb-nav:disabled { opacity:.25; cursor:default; }
+.inline-lightbox .lb-meta { bottom:14px; left:50%; transform:translateX(-50%); color:#fff; font-size:.85rem; background:rgba(0,0,0,.55); padding:6px 12px; border-radius:999px; white-space:nowrap; pointer-events:none; }
+@media(max-width:720px) {
+  .image-search-layout { flex-direction:column; }
+  .image-search-tree { width:100%; max-width:none; max-height:42%; border-right:0; border-bottom:1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>ak</span>_picture · 이미지 검색</h1>
+  <button class="btn" id="btnImgSearchRescan">↻ 목록갱신</button>
+  <button class="btn primary" id="btnCacheDownload">⬇ 캐시 저장</button>
+</header>
+<div class="toast" id="toast"></div>
+
+<div class="inline-lightbox" id="globalLightbox" aria-modal="true" role="dialog">
+  <button type="button" class="lb-close" id="globalLbClose">✕</button>
+  <button type="button" class="lb-nav lb-prev" id="globalLbPrev">‹</button>
+  <button type="button" class="lb-nav lb-next" id="globalLbNext">›</button>
+  <div class="lb-stage" id="globalLbStage"><img class="lb-img" id="globalLbImg" src="" alt="" draggable="false"></div>
+  <div class="lb-meta" id="globalLbMeta"></div>
+</div>
+
+  <main><div id="imageView" class="visible" style="display:flex;flex:1;min-height:0;">
+    <div class="image-search-layout">
+      <aside class="image-search-tree" id="imgSearchTree">
+        <div class="tree-title root-title">
+          <span id="imgSearchRootLabel">📁 폴더를 선택하세요</span>
+          <button type="button" class="btn root-select-btn" id="btnImgSearchSelectRoot">폴더 선택</button>
+          <input type="file" id="imgSearchFolderPicker" webkitdirectory directory multiple hidden>
+        </div>
+        <div class="tree-fav-bar">
+          <button type="button" class="btn" id="btnImgSearchFavOnly" title="즐겨찾기한 배우 폴더만 표시">☆ 즐겨찾기만</button>
+          <button type="button" class="btn" id="btnImgSearchRescan" title="폴더 목록 다시 스캔">↻ 목록갱신</button>
+        </div>
+        <div class="tree-view-mode-bar" title="이름 폴더는 항상 썸네일 · 하위 폴더만 List 적용">
+          <span class="label">보기</span>
+          <div class="view-mode-combo" id="imgSearchViewMode" role="group" aria-label="보기 모드">
+            <button type="button" data-mode="thumb" class="active">썸네일</button>
+            <button type="button" data-mode="list">List</button>
+          </div>
+        </div>
+        <div id="imgSearchTreeBody"><div class="tree-empty">폴더 스캔 중…</div></div>
+      </aside>
+      <div id="imgSearchSplitter" class="img-search-splitter" title="드래그하여 트리 폭 조절"></div>
+      <section class="image-search-main">
+        <div class="inline-orient-panel">
+          <div class="inline-orient-tabs" id="imgSearchOrientTabs" role="tablist">
+            <button type="button" class="orient-tab active" data-orient="all" role="tab">전체 <span class="n">(0)</span></button>
+            <button type="button" class="orient-tab" data-orient="landscape" role="tab">가로 <span class="n">(0)</span></button>
+            <button type="button" class="orient-tab" data-orient="portrait" role="tab">세로 <span class="n">(0)</span></button>
+          </div>
+          <div class="inline-size-controls">
+            <label>이미지 크기</label>
+            <input type="range" id="imgSearchSizeRange" min="80" max="1000" value="160" step="10" />
+            <span class="size-val" id="imgSearchSizeVal">160px</span>
+          </div>
+        </div>
+        <div class="inline-gallery-status" id="imgSearchStatus">폴더를 선택하세요</div>
+        <div class="inline-gallery" id="imgSearchGallery"></div>
+      </section>
+    </div>
+  </div>
+
+
+</main>
+
+<script>
+
+const FOLDER_CACHE_FILE = "act_folder_cache.json";
+let FOLDER_CACHE = null;
+
+let imgSearchLoaded = false;
+let imgSearchRoot = null;
+let imgSearchSelectedKey = "";
+let imgSearchOrient = "all";
+let imgSearchSize = 160;
+let imgSearchFavOnly = false;
+let imgSearchViewMode = "thumb";
+let imgSearchListScale = 0.9;
+
+function esc(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+async function loadFolderCacheFile() {
+  if (FOLDER_CACHE) return FOLDER_CACHE;
+  try {
+    const raw = localStorage.getItem("ak_folder_cache_v1");
+    if (raw) {
+      FOLDER_CACHE = JSON.parse(raw);
+      return FOLDER_CACHE;
+    }
+  } catch (e) {}
+  try {
+    const res = await fetch(FOLDER_CACHE_FILE, { cache: "no-store" });
+    if (res.ok) {
+      FOLDER_CACHE = await res.json();
+      try { localStorage.setItem("ak_folder_cache_v1", JSON.stringify(FOLDER_CACHE)); } catch (e) {}
+      return FOLDER_CACHE;
+    }
+  } catch (e) {}
+  FOLDER_CACHE = { act: null };
+  return FOLDER_CACHE;
+}
+
+function saveFolderCacheLocal() {
+  try {
+    localStorage.setItem("ak_folder_cache_v1", JSON.stringify(FOLDER_CACHE || {}));
+  } catch (e) {}
+}
+
+function downloadFolderCacheFile() {
+  try {
+    const blob = new Blob([JSON.stringify(FOLDER_CACHE || {}, null, 2)],
+      { type: "application/json;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = FOLDER_CACHE_FILE;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) {}
+}
+
+function formatActressFolderLabel(folderName) {
+  return folderName;
+}
+
+function getFavoriteFolderNames() {
+  // Standalone 파일에서는 배우 DB가 없으므로 즐겨찾기 필터는
+  // 별도 배우 데이터가 제공되는 경우에만 동작하도록 호환 처리.
+  const names = new Set();
+  const acts = Array.isArray(window.ACTRESSES) ? window.ACTRESSES : [];
+  acts.forEach(a => {
+    if (!a || !a.favorite) return;
+    const add = n => {
+      if (typeof n === "string" && n.trim()) names.add(n.trim());
+    };
+    add(a.nameJa);
+    (a.aliases || []).forEach(add);
+    (a.nameHistory || []).forEach(h => h && add(h.nameJa));
+  });
+  return names;
+}
+
+function getGlobalLightbox() {
+  if (window.__globalLb) return window.__globalLb;
+
+  const lb = document.getElementById("globalLightbox");
+  const img = document.getElementById("globalLbImg");
+  const stage = document.getElementById("globalLbStage");
+  const btnClose = document.getElementById("globalLbClose");
+  const btnPrev = document.getElementById("globalLbPrev");
+  const btnNext = document.getElementById("globalLbNext");
+  const meta = document.getElementById("globalLbMeta");
+  if (!lb || !img) {
+    return { open() {}, close() {}, isOpen() { return false; }, prev() {}, next() {}, zoomBy() {} };
+  }
+
+  let list = [];
+  let index = 0;
+  let scale = 1;
+  let baseW = 0, baseH = 0;
+  const MIN_SCALE = 0.4, MAX_SCALE = 3;
+  let active = false, drag = null, dragged = false;
+
+  function calcBaseSize() {
+    const nw = img.naturalWidth || 0, nh = img.naturalHeight || 0;
+    if (!nw || !nh) { baseW = baseH = 0; return; }
+    const maxW = window.innerWidth * 0.95;
+    const maxH = window.innerHeight * 0.90;
+    const fit = Math.min(maxW / nw, maxH / nh, 1);
+    baseW = Math.max(1, Math.round(nw * fit));
+    baseH = Math.max(1, Math.round(nh * fit));
+  }
+
+  function applyScale() {
+    if (!baseW || !baseH) {
+      if (img.naturalWidth) calcBaseSize();
+    }
+    if (!baseW || !baseH) return;
+    img.style.maxWidth = "none";
+    img.style.maxHeight = "none";
+    img.style.width = Math.round(baseW * scale) + "px";
+    img.style.height = Math.round(baseH * scale) + "px";
+  }
+
+  function centerScroll() {
+    requestAnimationFrame(() => {
+      lb.scrollLeft = Math.max(0, (lb.scrollWidth - lb.clientWidth) / 2);
+      lb.scrollTop = Math.max(0, (lb.scrollHeight - lb.clientHeight) / 2);
+    });
+  }
+
+  function updateMeta() {
+    if (!meta) return;
+    if (!list.length) { meta.textContent = ""; return; }
+    meta.textContent = `${index + 1} / ${list.length} · ${Math.round(scale * 100)}%`;
+  }
+
+  function show(i) {
+    if (!list.length) return;
+    index = (i + list.length) % list.length;
+    scale = 1;
+    baseW = baseH = 0;
+    active = true;
+    lb.classList.add("open");
+    document.body.style.overflow = "hidden";
+    img.onload = () => {
+      calcBaseSize();
+      applyScale();
+      centerScroll();
+      updateMeta();
+    };
+    img.src = list[index];
+    img.alt = "";
+    updateMeta();
+  }
+
+  function open(urls, i) {
+    list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+    if (!list.length) return;
+    show(i || 0);
+  }
+
+  function close() {
+    active = false;
+    lb.classList.remove("open");
+    document.body.style.overflow = "";
+    img.removeAttribute("src");
+  }
+
+  function isOpen() { return active && lb.classList.contains("open"); }
+  function prev() { if (list.length > 1) show(index - 1); }
+  function next() { if (list.length > 1) show(index + 1); }
+
+  function zoomBy(delta, clientX, clientY) {
+    const prevScale = scale;
+    const factor = delta > 0 ? 1.15 : 1 / 1.15;
+    const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
+    if (Math.abs(nextScale - prevScale) < 0.001) return;
+    scale = nextScale;
+
+    const rect = lb.getBoundingClientRect();
+    const mx = typeof clientX === "number" ? clientX - rect.left : rect.width / 2;
+    const my = typeof clientY === "number" ? clientY - rect.top : rect.height / 2;
+    const cx = mx + lb.scrollLeft, cy = my + lb.scrollTop;
+    const ratio = scale / prevScale;
+
+    applyScale();
+    updateMeta();
+    requestAnimationFrame(() => {
+      lb.scrollLeft = cx * ratio - mx;
+      lb.scrollTop = cy * ratio - my;
+    });
+  }
+
+  btnClose && btnClose.addEventListener("click", e => { e.stopPropagation(); close(); });
+  btnPrev && btnPrev.addEventListener("click", e => { e.stopPropagation(); prev(); });
+  btnNext && btnNext.addEventListener("click", e => { e.stopPropagation(); next(); });
+
+  lb.addEventListener("click", e => {
+    if (dragged) { dragged = false; return; }
+    if (e.target === lb || e.target === stage) close();
+  });
+  img.addEventListener("click", e => e.stopPropagation());
+
+  lb.addEventListener("wheel", e => {
+    if (!isOpen()) return;
+    e.preventDefault();
+    zoomBy(e.deltaY < 0 ? 1 : -1, e.clientX, e.clientY);
+  }, { passive: false });
+
+  const onMove = e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) dragged = true;
+    lb.scrollLeft = drag.sl - dx;
+    lb.scrollTop = drag.st - dy;
+  };
+  const onUp = () => {
+    drag = null;
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+  };
+  img.addEventListener("mousedown", e => {
+    if (!isOpen() || e.button !== 0) return;
+    e.preventDefault();
+    dragged = false;
+    drag = { x: e.clientX, y: e.clientY, sl: lb.scrollLeft, st: lb.scrollTop };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  });
+
+  window.addEventListener("keydown", e => {
+    if (!isOpen()) return;
+    if (e.key === "Escape") close();
+    else if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); next(); }
+    else if (e.key === "+" || e.key === "=") { e.preventDefault(); zoomBy(1); }
+    else if (e.key === "-" || e.key === "_") { e.preventDefault(); zoomBy(-1); }
+  });
+
+  window.addEventListener("resize", () => {
+    if (!isOpen()) return;
+    calcBaseSize(); applyScale(); updateMeta();
+  });
+
+  window.__globalLb = { open, close, isOpen, prev, next, zoomBy };
+  return window.__globalLb;
+}
+
+async function isDirListDir(dirPathEnc) {
+  const IMG_RE = /\.(?:jpg|jpeg|png|webp|gif)$/i;
+  const SKIP = /^(?:\?|#|javascript:|mailto:|https?:)/i;
+  const files = [], dirs = [];
+  try {
+    let url = dirPathEnc.endsWith("/") ? dirPathEnc : dirPathEnc + "/";
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return { ok: false, files, dirs };
+    const text = await res.text();
+
+    // 일반 HTML 페이지가 아니라 디렉터리 listing인지 확인.
+    if (/function\s+renderDetail|ACTRESSES\s*=|id=["']app["']/i.test(text)) {
+      return { ok: false, files, dirs };
+    }
+
+    let curPathname = "";
+    try {
+      const u = new URL(url, window.location.href);
+      curPathname = u.pathname.endsWith("/") ? u.pathname : u.pathname + "/";
+    } catch (e) { curPathname = url; }
+
+    const doc = new DOMParser().parseFromString(text, "text/html");
+    const anchors = Array.from(doc.querySelectorAll("a[href]"));
+
+    for (const a of anchors) {
+      const rawHref = a.getAttribute("href") || "";
+      if (!rawHref || SKIP.test(rawHref)) continue;
+
+      let name = (a.textContent || "").trim();
+      let href = rawHref;
+      try { href = decodeURIComponent(href); } catch (e) {}
+
+      // href 기준으로 상대 경로를 계산.
+      let absPath = "";
+      let isDir = false;
+      try {
+        const base = new URL(url, window.location.href);
+        const u = new URL(rawHref, base);
+        isDir = u.pathname.endsWith("/");
+        absPath = u.pathname + u.search;
+        if (u.hash) absPath += u.hash;
+        if (!name || name === "/" || name === "../") {
+          name = decodeURIComponent(u.pathname.split("/").filter(Boolean).pop() || "");
+        }
+        if (isDir && !absPath.endsWith("/")) absPath += "/";
+      } catch (e) {
+        const clean = href.split(/[?#]/)[0];
+        isDir = clean.endsWith("/");
+        absPath = url + href;
+      }
+
+      if (!name || name === "../" || name === "./") continue;
+      name = name.replace(/\/$/, "");
+      const sk = (isDir ? "d:" : "f:") + name.toLowerCase();
+      if (seenLocal.has(sk)) continue;
+      seenLocal.add(sk);
+
+      if (isDir) dirs.push({ name, pathEnc: absPath });
+      else if (IMG_RE.test(name)) files.push({ name, src: absPath });
+    }
+    return { ok: true, files, dirs };
+  } catch (e) {
+    return { ok: false, files, dirs };
+  }
+
+  function seenLocalDummy() {}
+}
+
+async function scanImgNode(name, pathEnc, depth) {
+  const listing = await isDirListDir(pathEnc);
+  if (!listing.ok && depth === 0) return null;
+  const node = {
+    key: pathEnc.endsWith("/") ? pathEnc : pathEnc + "/",
+    name, label: name,
+    pathEnc: pathEnc.endsWith("/") ? pathEnc : pathEnc + "/",
+    files: (listing.files || []).slice(), children: []
+  };
+  if (depth < 4) {
+    for (const sub of listing.dirs || []) {
+      const child = await scanImgNode(sub.name, sub.pathEnc, depth + 1);
+      if (child) node.children.push(child);
+    }
+  }
+  return node;
+}
+
+function countImgAll(node) {
+  if (!node) return 0;
+  if (typeof node.imgCount === "number" && !node._filesLoaded) return node.imgCount;
+  let n = (node.files || []).length;
+  (node.children || []).forEach(c => { n += countImgAll(c); });
+  return n;
+}
+
+async function countImagesInDir(pathEnc, depth) {
+  const listing = await isDirListDir(pathEnc);
+  if (!listing.ok) return 0;
+  let n = (listing.files || []).length;
+  if (depth < 5) {
+    for (const d of listing.dirs || []) n += await countImagesInDir(d.pathEnc, depth + 1);
+  }
+  return n;
+}
+
+async function scanTopFolderIndex(cacheKey, rootLabel, rootPathEnc, useCache) {
+  await loadFolderCacheFile();
+
+  if (useCache && FOLDER_CACHE && FOLDER_CACHE[cacheKey] &&
+      Array.isArray(FOLDER_CACHE[cacheKey].folders)) {
+    const cached = FOLDER_CACHE[cacheKey];
+    return {
+      fromCache: true, updated: cached.updated || "",
+      root: {
+        key: rootPathEnc.endsWith("/") ? rootPathEnc : rootPathEnc + "/",
+        name: rootLabel, label: rootLabel,
+        pathEnc: rootPathEnc.endsWith("/") ? rootPathEnc : rootPathEnc + "/",
+        files: [],
+        children: cached.folders.map(f => ({
+          key: f.pathEnc.endsWith("/") ? f.pathEnc : f.pathEnc + "/",
+          name: f.name, label: f.name,
+          pathEnc: f.pathEnc.endsWith("/") ? f.pathEnc : f.pathEnc + "/",
+          files: [], children: [], imgCount: f.count || 0, _filesLoaded: false
+        })),
+        imgCount: cached.folders.reduce((s, f) => s + (f.count || 0), 0),
+        isRoot: true
+      }
+    };
+  }
+
+  const listing = await isDirListDir(rootPathEnc);
+  if (!listing.ok) return { fromCache: false, root: null };
+
+  const children = [];
+  const dirs = listing.dirs || [];
+  const BATCH = 8;
+
+  for (let i = 0; i < dirs.length; i += BATCH) {
+    const slice = dirs.slice(i, i + BATCH);
+    const counts = await Promise.all(slice.map(d => countImagesInDir(d.pathEnc, 0)));
+    slice.forEach((d, j) => children.push({
+      key: d.pathEnc.endsWith("/") ? d.pathEnc : d.pathEnc + "/",
+      name: d.name, label: d.name,
+      pathEnc: d.pathEnc.endsWith("/") ? d.pathEnc : d.pathEnc + "/",
+      files: [], children: [], imgCount: counts[j] || 0, _filesLoaded: false
+    }));
+  }
+
+  children.sort((a, b) => String(a.name).localeCompare(String(b.name), "ja"));
+
+  const root = {
+    key: rootPathEnc.endsWith("/") ? rootPathEnc : rootPathEnc + "/",
+    name: rootLabel, label: rootLabel,
+    pathEnc: rootPathEnc.endsWith("/") ? rootPathEnc : rootPathEnc + "/",
+    files: (listing.files || []).slice(), children,
+    imgCount: children.reduce((s, c) => s + (c.imgCount || 0), 0) + (listing.files || []).length,
+    isRoot: true
+  };
+
+  if (!FOLDER_CACHE) FOLDER_CACHE = {};
+  FOLDER_CACHE[cacheKey] = {
+    updated: new Date().toISOString().slice(0, 19),
+    rootLabel,
+    folders: children.map(c => ({ name: c.name, pathEnc: c.pathEnc, count: c.imgCount || 0 }))
+  };
+  saveFolderCacheLocal();
+  return { fromCache: false, root };
+}
+
+
+async function ensureImgNodeStructureLoaded(node) {
+  if (!node) return node;
+  if (node._structureLoaded && !node._needsScan) return node;
+  if (!node._handle) return node;
+
+  const status = document.getElementById("imgSearchStatus");
+  const IMAGE_RE = /\.(?:jpg|jpeg|png|webp|gif|bmp)$/i;
+  const entries = [];
+
+  try {
+    if (status) status.textContent = "폴더 내용 읽는 중… · " + (node.name || "");
+
+    let n = 0;
+    for await (const [name, entry] of node._handle.entries()) {
+      entries.push([name, entry]);
+      if (++n % 250 === 0) {
+        if (status) status.textContent =
+          "폴더 내용 읽는 중… " + n.toLocaleString() + "개 항목 · " + (node.name || "");
+        await new Promise(r => requestAnimationFrame(r));
+      }
+    }
+
+    entries.sort((a,b) => {
+      const ad = a[1].kind === "directory", bd = b[1].kind === "directory";
+      if (ad !== bd) return ad ? -1 : 1;
+      return a[0].localeCompare(b[0], "ja");
+    });
+
+    node.files = [];
+    node._fileHandles = [];
+    node.children = node.children || [];
+
+    for (const [name, entry] of entries) {
+      if (entry.kind === "directory") {
+        const childPath = node.pathEnc
+          ? node.pathEnc + name + "/"
+          : "./" + name + "/";
+        node.children.push({
+          key: childPath,
+          name,
+          label: name,
+          pathEnc: childPath,
+          files: [],
+          _fileHandles: [],
+          children: [],
+          isRoot: false,
+          _filesLoaded: false,
+          _structureLoaded: false,
+          _needsScan: true,
+          _handle: entry,
+          _scanDepth: (node._scanDepth || 0) + 1
+        });
+      } else if (IMAGE_RE.test(name)) {
+        node._fileHandles.push({ name, handle: entry });
+      }
+    }
+
+    node.imgCount = node._fileHandles.length;
+    node._structureLoaded = true;
+    node._needsScan = false;
+    return node;
+  } catch (e) {
+    console.error("on-demand folder scan failed", e);
+    if (status) status.textContent = "폴더를 읽을 수 없습니다";
+    return node;
+  }
+}
+
+
+async function refreshImgTreeFileCounts(rootNode) {
+  // 클릭/갤러리 표시를 막지 않도록 폴더 개수 스캔은 백그라운드에서 한다.
+  // 한 번에 너무 많은 폴더를 읽지 않고, 이미 계산된 노드는 건너뛴다.
+  if (!rootNode) return;
+
+  const queue = [rootNode];
+  let scanned = 0;
+  const MAX_PER_YIELD = 3;
+
+  while (queue.length) {
+    for (let n = 0; n < MAX_PER_YIELD && queue.length; n++) {
+      const node = queue.shift();
+      if (!node) continue;
+      try {
+        if (!node._structureLoaded || node._needsScan) {
+          await ensureImgNodeStructureLoaded(node);
+        }
+        scanned++;
+        (node.children || []).forEach(child => {
+          if (child && (child._needsScan || !child._structureLoaded)) queue.push(child);
+        });
+      } catch (e) {
+        console.warn("tree file-count scan failed:", node.name, e);
+      }
+    }
+
+    renderImageSearchTree();
+    // 브라우저 이벤트/클릭 처리를 충분히 양보한다.
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  renderImageSearchTree();
+}
+
+async function ensureFolderImagesLoaded(node) {
+  if (!node || node.isRoot) return node;
+  await ensureImgNodeStructureLoaded(node);
+  if (node._filesLoaded) return node;
+
+  // Fast-scan nodes keep FileSystemFileHandles instead of opening every file.
+  // Only the selected folder is materialized into File/ObjectURL objects.
+  const loadNodeFiles = async (n) => {
+    if (!n) return;
+    if (!n._filesLoaded) {
+      n.files = n.files || [];
+      const handles = n._fileHandles || [];
+      const out = [];
+      const BATCH = 80;
+
+      for (let i = 0; i < handles.length; i += BATCH) {
+        const slice = handles.slice(i, i + BATCH);
+        const got = await Promise.all(slice.map(async h => {
+          try {
+            const file = await h.handle.getFile();
+            return { name: h.name, src: null, file, handle: h.handle };
+          } catch (e) {
+            return null;
+          }
+        }));
+        got.forEach(x => { if (x) out.push(x); });
+        if (i + BATCH < handles.length) {
+          await new Promise(r => requestAnimationFrame(r));
+        }
+      }
+
+      n.files = out;
+      n._filesLoaded = true;
+      n.imgCount = out.length;
+    }
+
+    // Do not recursively open descendants during first folder selection.
+    // Descendants are scanned/materialized only when the user selects them.
+    return n;
+  };
+
+  await loadNodeFiles(node);
+  return node;
+}
+
+async function enrichAllFolderStructures(root, statusEl) {
+  if (!root || !Array.isArray(root.children) || !root.children.length) return;
+  const kids = root.children, BATCH = 6;
+  for (let i = 0; i < kids.length; i += BATCH) {
+    const slice = kids.slice(i, i + BATCH);
+    if (statusEl) statusEl.textContent = "폴더 구조 확장 중… " +
+      Math.min(i + BATCH, kids.length) + "/" + kids.length;
+    await Promise.all(slice.map(async c => {
+      if (c._filesLoaded) return;
+      const full = await scanImgNode(c.name, c.pathEnc, 0);
+      if (full) {
+        c.files = full.files || [];
+        c.children = full.children || [];
+        c.imgCount = countImgAll(c);
+      }
+      c._filesLoaded = true;
+    }));
+  }
+}
+
+function isRootSelected(root, selectedKey) {
+  if (!root || !selectedKey) return true;
+  return selectedKey === root.key;
+}
+
+function renderActressFolderList(gal, status, root, favOnly, onSelectKey) {
+  gal.innerHTML = "";
+  let children = (root && root.children) ? root.children.slice() : [];
+  if (favOnly) {
+    const favNames = getFavoriteFolderNames();
+    if (favNames.size) children = children.filter(c => favNames.has(c.name) || favNames.has(c.label));
+    else children = [];
+  }
+  children.sort((a, b) => String(a.name).localeCompare(String(b.name), "ja"));
+
+  if (status) status.textContent = "배우 폴더 " + children.length +
+    "개 · 폴더를 선택하면 이미지를 불러옵니다";
+
+  if (!children.length) {
+    const empty = document.createElement("div");
+    empty.className = "tree-empty";
+    empty.style.padding = "24px";
+    empty.textContent = favOnly ? "즐겨찾기 배우 폴더 없음" : "표시할 배우 폴더가 없습니다";
+    gal.appendChild(empty);
+    return;
+  }
+
+  const list = document.createElement("div");
+  list.className = "actress-folder-list";
+  children.forEach(c => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "actress-folder-row";
+    row.innerHTML = '<span class="afr-name">' + esc(formatActressFolderLabel(c.name)) +
+      '</span><span class="afr-count">이미지 ' + countImgAll(c) + '</span>';
+    row.title = c.name;
+    row.addEventListener("click", () => onSelectKey(c.key));
+    list.appendChild(row);
+  });
+  gal.appendChild(list);
+}
+
+function collectImgFiles(node, out) {
+  (node.files || []).forEach(f => out.push({ name: f.name, src: f.src, folder: node.label }));
+  (node.children || []).forEach(c => collectImgFiles(c, out));
+}
+
+function findImgNode(node, key) {
+  if (!node) return null;
+  if (node.key === key) return node;
+  for (const c of node.children || []) {
+    const f = findImgNode(c, key);
+    if (f) return f;
+  }
+  return null;
+}
+
+if (!window.__imgTreeCollapsed) window.__imgTreeCollapsed = { act: {} };
+function isTreeCollapsed(side, key) {
+  return !!(window.__imgTreeCollapsed[side] && window.__imgTreeCollapsed[side][key]);
+}
+function toggleTreeCollapsed(side, key) {
+  if (!window.__imgTreeCollapsed[side]) window.__imgTreeCollapsed[side] = {};
+  if (window.__imgTreeCollapsed[side][key]) delete window.__imgTreeCollapsed[side][key];
+  else window.__imgTreeCollapsed[side][key] = true;
+}
+
+function renderImageSearchTree() {
+  const body = document.getElementById("imgSearchTreeBody");
+  if (!body) return;
+  if (!imgSearchRoot) {
+    body.innerHTML = '<div class="tree-empty">폴더가 선택되지 않았습니다<br>' +
+      '<span style="font-size:0.75rem">상단의 「폴더 선택」을 눌러 기준 폴더를 선택하세요</span></div>';
+    return;
+  }
+
+  const favNames = imgSearchFavOnly ? getFavoriteFolderNames() : null;
+  let topChildren = (imgSearchRoot.children || []).filter(c =>
+    !favNames || favNames.has(c.name) || favNames.has(c.label));
+
+  if (imgSearchFavOnly && topChildren.length === 0) {
+    body.innerHTML = '<div class="tree-empty">즐겨찾기 폴더가 없습니다</div>';
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  const sel = imgSearchSelectedKey || imgSearchRoot.key;
+
+  function makeItem(node, label, count, depth) {
+    const key = node.key, kids = node.children || [], hasSub = kids.length > 0;
+    const collapsed = hasSub && isTreeCollapsed("act", key);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tree-item" + (key === sel ? " active" : "");
+    btn.style.paddingLeft = (6 + depth * 14) + "px";
+    const twist = hasSub ? (collapsed ? "▶" : "▼") : "·";
+    btn.innerHTML = '<span class="tree-twist' + (hasSub ? "" : " is-leaf") +
+      '" data-twist="1">' + twist + '</span><span class="tree-ico">📁</span>' +
+      '<span class="tree-label" title="' + esc(label) + '">' + esc(label) +
+      '</span><span class="tree-count">' + count + '</span>';
+    btn.addEventListener("click", e => {
+      if (e.target && e.target.getAttribute("data-twist") === "1" && hasSub) {
+        e.stopPropagation();
+        toggleTreeCollapsed("act", key);
+        renderImageSearchTree();
+        return;
+      }
+      selectImgSearchFolder(key);
+    });
+    return btn;
+  }
+
+  function walk(node, depth) {
+    frag.appendChild(makeItem(node, node.name || node.label, countImgAll(node), depth));
+    if ((node.children || []).length && !isTreeCollapsed("act", node.key)) {
+      node.children.forEach(c => walk(c, depth + 1));
+    }
+  }
+
+  const rootNode = {
+    key: imgSearchRoot.key,
+    name: imgSearchRoot.label + (imgSearchFavOnly ? " ★" : ""),
+    label: imgSearchRoot.label, children: topChildren, isRoot: true
+  };
+  frag.appendChild(makeItem(rootNode, rootNode.name,
+    topChildren.reduce((s, c) => s + countImgAll(c), 0), 0));
+
+  if (!isTreeCollapsed("act", imgSearchRoot.key))
+    topChildren.forEach(c => walk(c, 1));
+
+  body.innerHTML = "";
+  body.appendChild(frag);
+}
+
+async function selectImgSearchFolder(key) {
+  // 이전에 선택한 폴더를 먼저 스캔하지 않는다.
+  // 이 동작이 클릭 지연/무반응의 가장 큰 원인이었다.
+  imgSearchSelectedKey = key;
+  const node = findImgNode(imgSearchRoot, key);
+
+  renderImageSearchTree();
+  if (!node) return;
+
+  // 선택 폴더만 실제로 읽고 갤러리를 표시한다.
+  if (!node.isRoot) await ensureFolderImagesLoaded(node);
+  await renderImageSearchGallery();
+
+  // 하위 폴더의 개수 계산은 화면 표시를 막지 않고 백그라운드에서 진행한다.
+  refreshImgTreeFileCounts(node).catch(e =>
+    console.warn("selected tree file-count refresh failed:", e)
+  );
+
+  try { saveImgSettingsToFile(); } catch (e) {}
+}
+
+async function renderImageSearchGallery() {
+  const gal = document.getElementById("imgSearchGallery");
+  const status = document.getElementById("imgSearchStatus");
+  const tabs = document.getElementById("imgSearchOrientTabs");
+  if (!gal) return;
+
+  gal.innerHTML = "";
+  gal.classList.remove("list-mode");
+  gal.style.removeProperty("--list-item-w");
+
+  const sizeCtrls = document.getElementById("imgSearchSizeRange")?.closest(".inline-size-controls");
+  if (sizeCtrls) sizeCtrls.classList.remove("is-hidden-list");
+
+  if (isRootSelected(imgSearchRoot, imgSearchSelectedKey)) {
+    tabs?.querySelectorAll(".orient-tab .n").forEach(el => el.textContent = "(0)");
+    renderActressFolderList(gal, status, imgSearchRoot, imgSearchFavOnly, key => selectImgSearchFolder(key));
+    return;
+  }
+
+  const node = findImgNode(imgSearchRoot, imgSearchSelectedKey);
+  if (!node) { if (status) status.textContent = "폴더를 선택하세요"; return; }
+
+  if (status) status.textContent = "이미지 목록 준비 중… · " + node.name;
+  await ensureFolderImagesLoaded(node);
+  renderImageSearchTree();
+
+  // The selected folder only. No recursive File/ObjectURL creation here.
+  const list = (node.files || []).slice();
+
+  const useList = imgSearchViewMode === "list";
+  gal.classList.toggle("list-mode", useList);
+  if (useList) gal.style.setProperty("--list-item-w", (imgSearchListScale * 100) + "%");
+
+  const sizeCtrls2 = document.querySelector(".inline-size-controls");
+  if (sizeCtrls2) sizeCtrls2.classList.toggle("is-hidden-list", useList);
+
+  function updateTabs() {
+    const items = gal.querySelectorAll(".inline-gallery-item");
+    let all = 0, land = 0, port = 0;
+    items.forEach(it => {
+      if (it.dataset.removed === "1") return;
+      all++;
+      if (it.dataset.orient === "portrait") port++; else land++;
+    });
+
+    const setN = (k, n) => {
+      const el = tabs?.querySelector('[data-orient="' + k + '"] .n');
+      if (el) el.textContent = "(" + n + ")";
+    };
+    setN("all", all); setN("landscape", land); setN("portrait", port);
+
+    let shown = 0;
+    items.forEach(it => {
+      if (it.dataset.removed === "1") return;
+      const ok = imgSearchOrient === "all" || it.dataset.orient === imgSearchOrient;
+      it.dataset.hidden = ok ? "0" : "1";
+      if (ok) shown++;
+      if (!useList && ok) it.style.width = imgSearchSize + "px";
+    });
+
+    const label = imgSearchOrient === "landscape" ? "가로" :
+      imgSearchOrient === "portrait" ? "세로" : "전체";
+    if (status) {
+      status.textContent = !all ? "이미지 없음 · " + (node.name || "") :
+        label + " " + shown + "장 / 로드 " + all + "장 · " +
+        (node.name || node.label || "") + (list.length > all ? " · 스크롤하면 계속 로드" : "") +
+        (useList ? " · List" : "");
+    }
+  }
+
+  if (!list.length) {
+    if (status) status.textContent = "이미지 없음 · " + (node.name || "");
+    updateTabs();
+    return;
+  }
+
+  // Object URLs are created only for visible batches.
+  const BATCH = 60;
+  let cursor = 0;
+  let loading = false;
+  const lightboxSrc = [];
+
+  const appendBatch = async () => {
+    if (loading || cursor >= list.length) return;
+    loading = true;
+
+    const end = Math.min(cursor + BATCH, list.length);
+    const slice = list.slice(cursor, end);
+
+    for (let i = 0; i < slice.length; i++) {
+      const rec = slice[i];
+      let fileName = rec.name;
+      try { fileName = decodeURIComponent(rec.name); } catch (e) {}
+
+      let src = rec.src;
+      if (!src && rec.file) {
+        try {
+          src = URL.createObjectURL(rec.file);
+          rec.src = src;
+          if (!window.__imgObjectUrls) window.__imgObjectUrls = [];
+          window.__imgObjectUrls.push(src);
+        } catch (e) {
+          continue;
+        }
+      }
+      if (!src) continue;
+
+      const item = document.createElement("div");
+      item.className = "inline-gallery-item";
+      item.dataset.orient = "landscape";
+      item.dataset.index = String(cursor + i);
+      if (!useList) item.style.width = imgSearchSize + "px";
+
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = fileName;
+      img.title = fileName;
+      img.loading = "lazy";
+      img.decoding = "async";
+
+      if (!useList) {
+        img.style.width = "100%";
+        img.style.height = "auto";
+      }
+
+      const lbIndex = lightboxSrc.length;
+      lightboxSrc.push(src);
+      img.addEventListener("click", () => getGlobalLightbox().open(lightboxSrc, lbIndex));
+
+      img.addEventListener("error", () => {
+        item.dataset.removed = "1";
+        item.remove();
+        updateTabs();
+      });
+
+      img.addEventListener("load", () => {
+        item.dataset.orient =
+          img.naturalWidth >= img.naturalHeight ? "landscape" : "portrait";
+        const meta = item.querySelector(".inline-gallery-meta");
+        if (meta) meta.textContent = img.naturalWidth + "×" + img.naturalHeight;
+        updateTabs();
+      });
+
+      const cap = document.createElement("div");
+      cap.className = "inline-gallery-caption";
+      cap.textContent = fileName;
+      item.appendChild(img);
+      item.appendChild(cap);
+
+      if (useList) {
+        const meta = document.createElement("div");
+        meta.className = "inline-gallery-meta";
+        meta.textContent = "…";
+        item.appendChild(meta);
+      }
+      gal.appendChild(item);
+
+      if ((i + 1) % 20 === 0) {
+        await new Promise(r => requestAnimationFrame(r));
+      }
+    }
+
+    cursor = end;
+    loading = false;
+    updateTabs();
+
+    if (cursor >= list.length && status) {
+      status.textContent += " · 전체 로드 완료";
+    }
+  };
+
+  await appendBatch();
+
+  if (cursor < list.length) {
+    const sentinel = document.createElement("div");
+    sentinel.className = "img-gallery-load-sentinel";
+    sentinel.style.cssText = "height:1px;width:100%;";
+    gal.appendChild(sentinel);
+
+    if (window.__imgGalleryObserver) {
+      try { window.__imgGalleryObserver.disconnect(); } catch (e) {}
+    }
+
+    window.__imgGalleryObserver = new IntersectionObserver(async entries => {
+      if (entries.some(e => e.isIntersecting)) {
+        await appendBatch();
+        if (cursor >= list.length) {
+          try { window.__imgGalleryObserver.disconnect(); } catch (e) {}
+          sentinel.remove();
+        }
+      }
+    }, { root: null, rootMargin: "1200px 0px" });
+
+    window.__imgGalleryObserver.observe(sentinel);
+  }
+
+  updateTabs();
+}
+
+
+function restoreImgSavedFolderSelection() {
+  const wanted = window.__akSavedFolderPath || "";
+  if (!wanted || !imgSearchRoot) return false;
+
+  const node = findImgNode(imgSearchRoot, wanted);
+  if (node) {
+    imgSearchSelectedKey = node.key;
+    return true;
+  }
+
+  // Keys can differ slightly between versions; match normalized path.
+  const normalize = v => String(v || "").replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+/g, "/").replace(/\/$/, "");
+  const target = normalize(wanted);
+
+  let found = null;
+  const walk = n => {
+    if (!n || found) return;
+    if (normalize(n.pathEnc) === target || normalize(n.key) === target) {
+      found = n;
+      return;
+    }
+    (n.children || []).forEach(walk);
+  };
+  walk(imgSearchRoot);
+
+  if (found) {
+    imgSearchSelectedKey = found.key;
+    return true;
+  }
+  return false;
+}
+
+async function scanSelectedDirectory(dirHandle, displayName) {
+  const status = document.getElementById("imgSearchStatus");
+  const body = document.getElementById("imgSearchTreeBody");
+  if (body) body.innerHTML = '<div class="tree-empty">선택한 폴더 구조 준비 중…</div>';
+  if (status) status.textContent = "빠른 폴더 스캔 중…";
+
+  const IMAGE_RE = /\.(?:jpg|jpeg|png|webp|gif|bmp)$/i;
+  const YIELD_EVERY = 250;
+
+  async function enumerateDirectory(handle, depth, parentPath, scanDescendants) {
+    const node = {
+      key: parentPath || "./",
+      name: handle.name,
+      label: handle.name,
+      pathEnc: parentPath || "./",
+      files: [],
+      _fileHandles: [],
+      children: [],
+      isRoot: depth === 0,
+      _filesLoaded: false,
+      _structureLoaded: true,
+      _scanDepth: depth
+    };
+
+    let seen = 0;
+    const entries = [];
+
+    for await (const [name, entry] of handle.entries()) {
+      entries.push([name, entry]);
+      seen++;
+      if (seen % YIELD_EVERY === 0) {
+        if (status) status.textContent =
+          "빠른 폴더 스캔 중… " + seen.toLocaleString() + "개 항목";
+        await new Promise(r => requestAnimationFrame(r));
+      }
+    }
+
+    entries.sort((a, b) => {
+      const ad = a[1].kind === "directory", bd = b[1].kind === "directory";
+      if (ad !== bd) return ad ? -1 : 1;
+      return a[0].localeCompare(b[0], "ja");
+    });
+
+    for (const [name, entry] of entries) {
+      if (entry.kind === "directory") {
+        const childPath = parentPath ? parentPath + name + "/" : "./" + name + "/";
+
+        // Root + one level is prepared immediately; deeper levels are deferred.
+        if (scanDescendants && depth < 1) {
+          const child = await enumerateDirectory(entry, depth + 1, childPath, false);
+          node.children.push(child);
+        } else {
+          node.children.push({
+            key: childPath,
+            name,
+            label: name,
+            pathEnc: childPath,
+            files: [],
+            _fileHandles: [],
+            children: [],
+            isRoot: false,
+            _filesLoaded: false,
+            _structureLoaded: false,
+            _needsScan: true,
+            _handle: entry,
+            _scanDepth: depth + 1
+          });
+        }
+      } else if (IMAGE_RE.test(name)) {
+        // CRITICAL: do not call getFile() here.
+        // Keeping the FileSystemFileHandle is dramatically cheaper for 10k+ images.
+        node._fileHandles.push({ name, handle: entry });
+      }
+    }
+
+    // Known image count is exact for this directory only.
+    node.imgCount = node._fileHandles.length;
+    return node;
+  }
+
+  async function releaseObjectUrls() {
+    if (window.__imgObjectUrls) {
+      window.__imgObjectUrls.forEach(u => {
+        try { URL.revokeObjectURL(u); } catch (e) {}
+      });
+    }
+    window.__imgObjectUrls = [];
+  }
+
+  try {
+    if (window.__imgGalleryObserver) {
+      try { window.__imgGalleryObserver.disconnect(); } catch (e) {}
+      window.__imgGalleryObserver = null;
+    }
+    await releaseObjectUrls();
+
+    // Only enumerate the selected root and its immediate child folders.
+    // File bytes and Object URLs are not opened during this phase.
+    imgSearchRoot = await enumerateDirectory(dirHandle, 0, "./", true);
+    imgSearchRoot.name = displayName || dirHandle.name;
+    imgSearchRoot.label = displayName || dirHandle.name;
+    imgSearchRoot.key = "__selected_root__";
+    imgSearchRoot.pathEnc = "./";
+    imgSearchRoot._handle = dirHandle;
+    imgSearchRoot._structureLoaded = true;
+    imgSearchRoot._filesLoaded = false;
+
+    imgSearchSelectedKey = imgSearchRoot.key;
+    restoreImgSavedFolderSelection();
+    imgSearchLoaded = true;
+
+    renderImageSearchTree();
+    await renderImageSearchGallery();
+
+    // 폴더 선택 직후 전체 하위 폴더의 이미지 파일 개수를 백그라운드에서 계산한다.
+    // 실제 이미지 데이터는 읽지 않으므로 빠른 초기 표시 방식은 유지된다.
+    // 전체 트리 스캔은 클릭을 막지 않도록 별도 백그라운드 작업으로 시작한다.
+    setTimeout(() => refreshImgTreeFileCounts(imgSearchRoot).catch(e =>
+      console.warn("tree file-count refresh failed:", e)
+    ), 0);
+
+    const directFiles = imgSearchRoot.imgCount || 0;
+    const folders = (imgSearchRoot.children || []).length;
+    if (status) status.textContent =
+      "선택 폴더: " + imgSearchRoot.name +
+      " · 즉시 확인 " + directFiles.toLocaleString() + "장" +
+      " · 하위 폴더 " + folders.toLocaleString() + "개" +
+      " · 이미지 파일은 선택 시 로드";
+  } catch (e) {
+    imgSearchRoot = null;
+    imgSearchSelectedKey = "";
+    renderImageSearchTree();
+    renderImageSearchGallery();
+    if (status) status.textContent = "폴더를 읽을 수 없습니다";
+    showToast("폴더 스캔 실패: " + (e.message || e));
+  }
+}
+
+async function selectImageRootFolder() {
+  // Chromium/Edge 계열: 실제 폴더를 직접 선택할 수 있는 File System Access API.
+  if (window.showDirectoryPicker) {
+    try {
+      const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+      window.__imgRootHandle = handle;
+      await readImgPictureSettings(handle);
+      applyImgTreeWidth(imgPictureSettings.treeWidth, false);
+      applyImgViewMode(imgPictureSettings.viewMode, false);
+      await scanSelectedDirectory(handle, handle.name);
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+      showToast("폴더 선택을 취소했거나 접근할 수 없습니다");
+      return;
+    }
+  }
+
+  // 호환용 fallback: webkitdirectory 파일 선택.
+  const picker = document.getElementById("imgSearchFolderPicker");
+  if (!picker) return;
+  picker.value = "";
+  picker.click();
+}
+
+async function scanImageSearchRoot() {
+  // 더 이상 ./act를 자동으로 사용하지 않는다.
+  if (window.__imgRootHandle) {
+    await scanSelectedDirectory(window.__imgRootHandle, window.__imgRootHandle.name);
+  } else {
+    imgSearchRoot = null;
+    imgSearchSelectedKey = "";
+    renderImageSearchTree();
+    renderImageSearchGallery();
+  }
+}
+const IMG_SETTINGS_FILE = "ak_picture_settings.json";
+const IMG_TREE_WIDTH_KEY = "ak_picture_img_tree_width_v2";
+const IMG_VIEW_MODE_KEY = "ak_picture_img_view_mode_v2";
+let imgPictureSettings = { treeWidth: 300, viewMode: "thumb" };
+let imgPictureSettingsWritable = false;
+
+function applyImgTreeWidth(px, saveLocal=true) {
+  const layout = document.querySelector(".image-search-layout");
+  if (!layout) return;
+  const max = Math.max(150, Math.floor(layout.clientWidth * 0.55));
+  const width = Math.max(150, Math.min(max, Math.round(Number(px) || 300)));
+  layout.style.setProperty("--img-tree-width", width + "px");
+  imgPictureSettings.treeWidth = width;
+  if (saveLocal) { try { localStorage.setItem(IMG_TREE_WIDTH_KEY, String(width)); } catch(e) {} }
+}
+
+function applyImgViewMode(mode, saveLocal=true) {
+  imgSearchViewMode = mode === "list" ? "list" : "thumb";
+  const combo = document.getElementById("imgSearchViewMode");
+  combo?.querySelectorAll("button[data-mode]").forEach(b => b.classList.toggle("active", b.dataset.mode === imgSearchViewMode));
+  imgPictureSettings.viewMode = imgSearchViewMode;
+  if (saveLocal) { try { localStorage.setItem(IMG_VIEW_MODE_KEY, imgSearchViewMode); } catch(e) {} }
+}
+
+async function readImgPictureSettings(handle) {
+  const fallback = {
+    treeWidth: (() => { try { return parseInt(localStorage.getItem(IMG_TREE_WIDTH_KEY) || "300", 10) || 300; } catch(e) { return 300; } })(),
+    viewMode: (() => { try { const v=localStorage.getItem(IMG_VIEW_MODE_KEY) || localStorage.getItem("ak_img_search_view_mode") || "thumb"; return v === "list" ? "list" : "thumb"; } catch(e) { return "thumb"; } })()
+  };
+  imgPictureSettings = fallback;
+  imgPictureSettingsWritable = false;
+  if (!handle?.getFileHandle) return;
+  try {
+    const fh = await handle.getFileHandle(IMG_SETTINGS_FILE, { create:false });
+    const f = await fh.getFile();
+    const data = JSON.parse(await f.text());
+    if (Number.isFinite(Number(data.treeWidth))) imgPictureSettings.treeWidth = Number(data.treeWidth);
+    if (data.viewMode === "list" || data.viewMode === "thumb") imgPictureSettings.viewMode = data.viewMode;
+  } catch(e) {
+    // 설정 파일이 없으면 로컬 설정을 사용한다.
+  }
+  try {
+    if (handle.queryPermission && handle.requestPermission) {
+      let perm = await handle.queryPermission({mode:"readwrite"});
+      if (perm !== "granted") perm = await handle.requestPermission({mode:"readwrite"});
+      imgPictureSettingsWritable = perm === "granted";
+    } else {
+      imgPictureSettingsWritable = false;
+    }
+  } catch(e) { imgPictureSettingsWritable = false; }
+}
+
+async function writeImgPictureSettings() {
+  const handle = window.__imgRootHandle;
+  if (!handle?.getFileHandle || !imgPictureSettingsWritable) return;
+  try {
+    const fh = await handle.getFileHandle(IMG_SETTINGS_FILE, {create:true});
+    const w = await fh.createWritable();
+    await w.write(JSON.stringify({version:1, treeWidth:imgPictureSettings.treeWidth, viewMode:imgPictureSettings.viewMode}, null, 2));
+    await w.close();
+  } catch(e) {
+    imgPictureSettingsWritable = false;
+  }
+}
+
+function initImgSearchSplitter() {
+  const layout = document.querySelector(".image-search-layout");
+  const splitter = document.getElementById("imgSearchSplitter");
+  const tree = document.getElementById("imgSearchTree");
+  if (!layout || !splitter || !tree) return;
+  applyImgTreeWidth(imgPictureSettings.treeWidth, false);
+  let dragging=false, startX=0, startWidth=300;
+  const move = e => { if (!dragging) return; applyImgTreeWidth(startWidth + e.clientX-startX); };
+  const up = () => {
+    if (!dragging) return;
+    dragging=false; splitter.classList.remove("dragging"); document.body.style.cursor=""; document.body.style.userSelect="";
+    window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+    writeImgPictureSettings();
+  };
+  splitter.addEventListener("pointerdown", e => {
+    e.preventDefault(); dragging=true; startX=e.clientX; startWidth=tree.getBoundingClientRect().width;
+    splitter.classList.add("dragging"); document.body.style.cursor="col-resize"; document.body.style.userSelect="none";
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+  });
+  window.addEventListener("resize", () => applyImgTreeWidth(imgPictureSettings.treeWidth, false));
+}
+
+function initImageSearchUI() {
+  getGlobalLightbox();
+
+  const sizeRange = document.getElementById("imgSearchSizeRange");
+  const btnSelectRoot = document.getElementById("btnImgSearchSelectRoot");
+  const folderPicker = document.getElementById("imgSearchFolderPicker");
+
+  btnSelectRoot?.addEventListener("click", selectImageRootFolder);
+
+  folderPicker?.addEventListener("change", async e => {
+    const files = Array.from(e.target.files || []);
+    applyImgTreeWidth(imgPictureSettings.treeWidth, false);
+    applyImgViewMode(imgPictureSettings.viewMode, false);
+    if (!files.length) return;
+
+    // webkitdirectory fallback: reconstruct a virtual tree from relative paths.
+    if (window.__imgObjectUrls) window.__imgObjectUrls.forEach(u => URL.revokeObjectURL(u));
+    window.__imgObjectUrls = [];
+
+    const rootName = (files[0].webkitRelativePath || files[0].name).split("/")[0];
+    const root = {
+      key: "__selected_root__",
+      name: rootName,
+      label: rootName,
+      pathEnc: "./",
+      files: [], children: [],
+      isRoot: true, _filesLoaded: true
+    };
+
+    for (const file of files) {
+      if (!/\.(?:jpg|jpeg|png|webp|gif|bmp)$/i.test(file.name)) continue;
+      const parts = (file.webkitRelativePath || file.name).split("/");
+      parts.shift();
+      let node = root;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        let child = node.children.find(c => c.name === part);
+        if (!child) {
+          child = {
+            key: "__selected_root__/" + parts.slice(0, i + 1).join("/") + "/",
+            name: part, label: part, pathEnc: "./",
+            files: [], children: [], _filesLoaded: true
+          };
+          node.children.push(child);
+        }
+        node = child;
+      }
+      const url = URL.createObjectURL(file);
+      window.__imgObjectUrls.push(url);
+      node.files.push({ name: parts[parts.length - 1], src: url, file });
+    }
+
+    (function finalize(n) {
+      n.children.sort((a,b) => a.name.localeCompare(b.name, "ja"));
+      n.children.forEach(finalize);
+      n.imgCount = (n.files || []).length +
+        n.children.reduce((sum,c) => sum + (c.imgCount || 0), 0);
+    })(root);
+
+    imgSearchRoot = root;
+    imgSearchSelectedKey = root.key;
+    imgSearchLoaded = true;
+    renderImageSearchTree();
+    await renderImageSearchGallery();
+
+    const label = document.getElementById("imgSearchRootLabel");
+    if (label) label.textContent = "📁 " + rootName;
+    const status = document.getElementById("imgSearchStatus");
+    if (status) status.textContent = "선택 폴더: " + rootName + " · 이미지 " + countImgAll(root) + "장";
+  });
+  const sizeVal = document.getElementById("imgSearchSizeVal");
+  const tabs = document.getElementById("imgSearchOrientTabs");
+  const btnFav = document.getElementById("btnImgSearchFavOnly");
+  const btnRescan = document.getElementById("btnImgSearchRescan");
+  const viewModeCombo = document.getElementById("imgSearchViewMode");
+
+  try {
+    const s = parseInt(localStorage.getItem("ak_img_search_size") || "160", 10);
+    if (s >= 80 && s <= 1000) imgSearchSize = s;
+  } catch (e) {}
+
+  if (sizeRange) {
+    sizeRange.value = imgSearchSize;
+    if (sizeVal) sizeVal.textContent = imgSearchSize + "px";
+    sizeRange.addEventListener("input", () => {
+      imgSearchSize = parseInt(sizeRange.value, 10) || 160;
+      if (sizeVal) sizeVal.textContent = imgSearchSize + "px";
+      const gal = document.getElementById("imgSearchGallery");
+      gal?.querySelectorAll(".inline-gallery-item").forEach(it => {
+        const o = it.dataset.orient || "landscape";
+        if (imgSearchOrient === "all" || imgSearchOrient === o) it.style.width = imgSearchSize + "px";
+      });
+      try { localStorage.setItem("ak_img_search_size", String(imgSearchSize)); } catch (e) {}
+    });
+  }
+
+  if (tabs) {
+    tabs.addEventListener("click", e => {
+      const btn = e.target.closest(".orient-tab");
+      if (!btn) return;
+      imgSearchOrient = btn.dataset.orient || "all";
+      tabs.querySelectorAll(".orient-tab").forEach(b => b.classList.toggle("active", b === btn));
+      renderImageSearchGallery();
+    });
+  }
+
+  if (btnFav) {
+    btnFav.addEventListener("click", () => {
+      const acts = Array.isArray(window.ACTRESSES) ? window.ACTRESSES : [];
+      if (!acts.length) {
+        showToast("독립 실행 파일에서는 배우 즐겨찾기 DB가 없습니다");
+        return;
+      }
+      imgSearchFavOnly = !imgSearchFavOnly;
+      btnFav.classList.toggle("active", imgSearchFavOnly);
+      btnFav.textContent = imgSearchFavOnly ? "★ 즐겨찾기만" : "☆ 즐겨찾기만";
+      renderImageSearchTree();
+      renderImageSearchGallery();
+    });
+  }
+
+  if (btnRescan) {
+    btnRescan.addEventListener("click", () => {
+      if (window.__imgRootHandle) {
+        scanSelectedDirectory(window.__imgRootHandle, window.__imgRootHandle.name);
+      } else {
+        selectImageRootFolder();
+      }
+    });
+  }
+
+  if (viewModeCombo) {
+    applyImgViewMode(imgPictureSettings.viewMode, false);
+    viewModeCombo.querySelectorAll("button[data-mode]").forEach(b => {
+      b.addEventListener("click", () => {
+        applyImgViewMode(b.dataset.mode, true);
+        writeImgPictureSettings();
+        renderImageSearchGallery();
+      });
+    });
+
+    viewModeCombo.addEventListener("wheel", e => {
+      if (imgSearchViewMode !== "list") return;
+      e.preventDefault();
+      imgSearchListScale = Math.min(1.4, Math.max(0.5,
+        imgSearchListScale * (e.deltaY < 0 ? 1.08 : 1 / 1.08)));
+      renderImageSearchGallery();
+    }, { passive: false });
+  }
+
+  if (sizeRange) sizeRange.addEventListener("dblclick", () => {
+    imgSearchSize = 160;
+    sizeRange.value = 160;
+    if (sizeVal) sizeVal.textContent = "160px";
+    renderImageSearchGallery();
+  });
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const w = parseInt(localStorage.getItem(IMG_TREE_WIDTH_KEY) || "300", 10);
+    const v = localStorage.getItem(IMG_VIEW_MODE_KEY) || localStorage.getItem("ak_img_search_view_mode") || "thumb";
+    imgPictureSettings.treeWidth = Number.isFinite(w) ? w : 300;
+    imgPictureSettings.viewMode = v === "list" ? "list" : "thumb";
+  } catch(e) {}
+  initImageSearchUI();
+  initImgSearchSplitter();
+  await scanImageSearchRoot();
+});
+
+document.getElementById("btnCacheDownload")?.addEventListener("click", downloadFolderCacheFile);
+
+if (!window.__akSettingsSaveHooksInstalled) {
+  window.__akSettingsSaveHooksInstalled = true;
+
+  const saveAfterUiChange = () => {
+    try { saveImgSettingsToFile(); } catch (e) {}
+  };
+
+  document.addEventListener("pointerup", e => {
+    if (e.target && (e.target.closest?.("#imgSearchTreeSplitter") ||
+                     e.target.closest?.(".img-tree-splitter"))) {
+      setTimeout(saveAfterUiChange, 0);
+    }
+  }, true);
+
+  window.addEventListener("beforeunload", () => {
+    try { saveImgSettingsToFile(); } catch (e) {}
+  });
+}
+
+
+setTimeout(async () => {
+  try {
+    // Settings are intentionally stored in the HTML execution/project folder,
+    // not in the selected image folder. This is a one-time browser permission.
+    if (!imgSettingsDirHandle && window.showDirectoryPicker) {
+      await chooseImgSettingsLocation();
+      if (window.__akSavedFolderPath && imgSearchRoot) {
+        restoreImgSavedFolderSelection();
+      }
+    }
+  } catch (e) {}
+}, 300);
+
+
+window.__akFolderClickRepair = true;
+document.addEventListener("click", async (ev) => {
+  const el = ev.target.closest?.("[data-img-folder-key],[data-folder-key],[data-key]");
+  if (!el) return;
+  const key = el.dataset.imgFolderKey || el.dataset.folderKey || el.dataset.key;
+  if (!key) return;
+
+  const node = findImgNode(imgSearchRoot, key);
+  if (!node) return;
+
+  // If this is a deferred folder, make it real before the gallery is rendered.
+  if (node._needsScan || !node._structureLoaded) {
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    imgSearchSelectedKey = key;
+    await ensureImgNodeStructureLoaded(node);
+    renderImageSearchTree();
+    await renderImageSearchGallery();
+    scheduleImgSearchTreeDefaultExpansion();
+  }
+}, true);
+
+</script>
+</body>
+</html>
