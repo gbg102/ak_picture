@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ak_picture · 이미지 검색</title>
+<title>ak_picture · 이미지 검색 · v1.36</title>
 <style>
 html,body { height:100%; margin:0; }
 :root {
@@ -25,8 +25,10 @@ header h1 span { color:var(--accent); }
 main { height:calc(100vh - 56px); display:flex; overflow:hidden; }
 .image-search-layout { display:grid; grid-template-columns:var(--img-tree-width,300px) 8px minmax(0,1fr); flex:1; min-height:0; height:100%; overflow:hidden; }
 .image-search-tree { width:auto; min-width:150px; max-width:none; background:var(--panel);
-  border-right:1px solid var(--border); overflow:auto; padding:10px 8px 16px;
-  flex-shrink:0; font-size:.85rem; }
+  border-right:1px solid var(--border); overflow:hidden; padding:10px 8px 0;
+  flex-shrink:0; font-size:.85rem; display:flex; flex-direction:column; min-height:0; }
+.image-search-tree .tree-title, .image-search-tree .tree-fav-bar, .image-search-tree .tree-view-mode-bar { flex-shrink:0; }
+#imgSearchTreeBody { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding-bottom:16px; }
 .img-search-splitter { width:8px; cursor:col-resize; background:var(--border); position:relative; user-select:none; touch-action:none; }
 .img-search-splitter:hover, .img-search-splitter.dragging { background:var(--accent); }
 .img-search-splitter::after { content:"⋮"; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:var(--muted); font-size:16px; }
@@ -38,6 +40,28 @@ main { height:calc(100vh - 56px); display:flex; overflow:hidden; }
 .image-search-tree .tree-fav-bar .btn { flex:1; justify-content:center; }
 .image-search-tree .tree-fav-bar .btn.active { border-color:var(--accent); color:var(--accent); background:rgba(255,77,109,.16); }
 .image-search-tree .tree-view-mode-bar { display:flex; align-items:center; gap:8px; padding:0 6px 10px; border-bottom:1px solid var(--border); margin-bottom:8px; color:var(--muted); }
+.image-search-tree .tree-file-view-toggle { display:flex; align-items:center; gap:6px; padding:0 6px 8px; color:var(--muted); font-size:.78rem; }
+.image-search-tree .tree-file-view-toggle input { width:15px; height:15px; accent-color:var(--accent); cursor:pointer; }
+.image-search-tree .tree-file-view-toggle label { cursor:pointer; user-select:none; }
+.folder-search-bar { display:flex; gap:5px; padding:6px 8px; border-bottom:1px solid var(--line,#ddd); background:var(--panel,#fff); }
+.folder-search-bar input { flex:1; min-width:0; height:30px; padding:4px 8px; border:1px solid var(--line,#ccc); border-radius:5px; background:inherit; color:inherit; font-size:13px; }
+.folder-search-bar .btn { min-width:30px; padding:2px 8px; }
+.img-tree-content { flex:1; min-height:0; display:flex; overflow:hidden; gap:0; }
+.img-tree-content .img-tree-pane { flex:1 1 auto; min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+#imgSearchTreeBody { flex:1; min-width:0; }
+.img-file-list-pane { display:none; flex:0 0 45%; min-width:90px; min-height:0; border-left:1px solid var(--border); overflow:hidden; flex-direction:column; }
+.img-file-list-pane.visible { display:flex; }
+.img-file-list-splitter { flex:0 0 7px; width:7px; cursor:col-resize; background:var(--border); position:relative; user-select:none; touch-action:none; display:none; }
+.img-file-list-splitter.visible { display:block; }
+.img-file-list-splitter:hover, .img-file-list-splitter.dragging { background:var(--accent); }
+.img-file-list-splitter::after { content:"⋮"; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:var(--muted); font-size:14px; }
+.img-file-list-title { flex-shrink:0; padding:4px 4px 7px; color:var(--muted); font-size:.75rem; border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.img-file-list { flex:1; min-height:0; overflow:auto; padding:4px 0; }
+.img-file-row { display:block; width:100%; border:0; background:transparent; color:var(--text); text-align:left; padding:5px 6px; border-radius:5px; cursor:pointer; font-size:.76rem; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.img-file-row:hover { background:rgba(255,77,109,.12); }
+.img-file-row.active { background:rgba(255,77,109,.20); color:var(--accent); font-weight:600; }
+.img-file-empty { padding:12px 6px; color:var(--muted); font-size:.75rem; line-height:1.4; }
+
 .image-search-tree .view-mode-combo { flex:1; display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--panel2); }
 .image-search-tree .view-mode-combo button { flex:1; border:0; background:transparent; color:var(--muted); padding:6px 8px; cursor:pointer; }
 .image-search-tree .view-mode-combo button+button { border-left:1px solid var(--border); }
@@ -53,19 +77,24 @@ main { height:calc(100vh - 56px); display:flex; overflow:hidden; }
 .image-search-tree .tree-ico { flex-shrink:0; width:1.25em; text-align:center; }
 .tree-empty { padding:10px 8px; color:var(--muted); font-size:.8rem; }
 .image-search-main { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; padding:12px 14px 16px; }
-.inline-orient-tabs { display:flex; justify-content:center; gap:6px; margin:0 0 12px; flex-wrap:wrap; }
+.inline-orient-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 12px; }
+.inline-orient-tabs { display:flex; justify-content:flex-start; gap:6px; flex:0 0 auto; flex-wrap:wrap; margin-right:auto; }
 .inline-orient-tabs .orient-tab { border:1px solid var(--border); background:var(--panel2); color:var(--muted);
   border-radius:999px; padding:6px 14px; font-size:.82rem; cursor:pointer; }
 .inline-orient-tabs .orient-tab.active { border-color:var(--accent); color:var(--accent); background:rgba(255,77,109,.16); font-weight:600; }
-.inline-size-controls { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+.inline-size-controls { display:flex; align-items:center; justify-content:flex-end; gap:7px; flex:0 0 auto; min-width:250px; margin-left:auto; }
+.inline-size-controls.is-hidden { display:none; }
 .inline-size-controls label { font-size:.82rem; color:var(--muted); }
-.inline-size-controls input[type=range] { width:160px; accent-color:var(--accent); }
+.inline-size-controls input[type=range] { width:150px; accent-color:var(--accent); }
 .inline-size-controls .size-val { min-width:52px; color:var(--accent); font-weight:600; font-size:.9rem; }
+@media (max-width:900px) { .inline-orient-row { flex-wrap:wrap; justify-content:space-between; } .inline-size-controls { flex:0 1 320px; min-width:220px; } .inline-orient-tabs { order:0; } }
 .inline-gallery-status { font-size:.82rem; color:var(--muted); margin-bottom:10px; text-align:center; }
 .inline-gallery { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; overflow-y:auto; flex:1; min-height:0; align-content:flex-start; }
 .inline-gallery-item { display:flex; flex-direction:column; align-items:center; width:160px; max-width:100%; }
 .inline-gallery-item[data-hidden="1"] { display:none!important; }
+.inline-gallery-item.file-focus-highlight { outline:3px solid var(--accent); outline-offset:3px; }
 .inline-gallery-item img { width:100%; height:auto; object-fit:contain; border-radius:8px; border:1px solid var(--border); background:var(--panel); cursor:pointer; }
+.inline-gallery-item img.ak-ctrl-zooming { cursor:ns-resize; user-select:none; -webkit-user-drag:none; }
 .inline-gallery-item img:hover { box-shadow:0 0 0 2px var(--accent); }
 .inline-gallery-caption { margin-top:6px; font-size:.72rem; color:var(--muted); text-align:center; word-break:break-all; line-height:1.35; }
 .inline-gallery-meta { text-align:center; font-size:.72rem; color:var(--muted); white-space:nowrap; }
@@ -73,19 +102,23 @@ main { height:calc(100vh - 56px); display:flex; overflow:hidden; }
 .inline-gallery.list-mode .inline-gallery-item { width:var(--list-item-w,90%)!important; max-width:var(--list-item-w,90%)!important; flex:0 0 auto!important; align-items:stretch; gap:6px; padding:8px; background:var(--panel2); border:1px solid var(--border); border-radius:10px; }
 .inline-gallery.list-mode .inline-gallery-item img { width:100%!important; height:auto!important; max-width:100%; }
 .inline-gallery.list-mode .inline-gallery-caption { text-align:center; font-size:.85rem; white-space:normal; }
-.inline-size-controls.is-hidden-list { display:none!important; }
-.actress-folder-list { display:flex; flex-direction:column; gap:4px; padding:8px 10px 20px; width:100%; }
-.actress-folder-row { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; text-align:left; padding:10px 12px;
+.image-folder-list { display:flex; flex-direction:column; gap:4px; padding:8px 10px 20px; width:100%; }
+.image-folder-row { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; text-align:left; padding:10px 12px;
   border:1px solid var(--border); border-radius:8px; background:var(--panel); color:var(--text); cursor:pointer; font-size:.92rem; }
-.actress-folder-row:hover { border-color:var(--accent); background:var(--panel2); }
-.actress-folder-row .afr-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.actress-folder-row .afr-count { flex-shrink:0; color:var(--muted); font-size:.85rem; }
+.image-folder-row:hover { border-color:var(--accent); background:var(--panel2); }
+.image-folder-row .afr-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.image-folder-row .afr-count { flex-shrink:0; color:var(--muted); font-size:.85rem; }
+.folder-translation-tip { position:fixed; z-index:100000; max-width:520px; padding:8px 11px; border:1px solid var(--accent); border-radius:8px; background:var(--panel); color:var(--text); box-shadow:0 8px 24px rgba(0,0,0,.25); font-size:.84rem; line-height:1.45; pointer-events:none; opacity:0; transform:translateY(4px); transition:opacity .12s, transform .12s; white-space:normal; }
+.folder-translation-tip.show { opacity:1; transform:translateY(0); }
+.folder-translation-tip .jp { color:var(--muted); font-size:.76rem; margin-bottom:3px; }
+.folder-translation-tip .ko { font-weight:600; }
+
 .toast { position:fixed; bottom:24px; right:24px; background:var(--panel); border:1px solid var(--accent);
   color:var(--text); padding:12px 18px; border-radius:8px; z-index:999; opacity:0; pointer-events:none; transition:opacity .2s; }
 .toast.show { opacity:1; }
 .inline-lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:99999; overflow:auto; user-select:none; }
 .inline-lightbox.open { display:block; }
-.inline-lightbox .lb-stage { display:flex; align-items:center; justify-content:center; min-width:100%; min-height:100%; padding:48px 56px 56px; }
+.inline-lightbox .lb-stage { display:flex; align-items:center; justify-content:center; width:max-content; height:max-content; min-width:100%; min-height:100%; box-sizing:border-box; padding:48px 56px 56px; }
 .inline-lightbox img.lb-img { display:block; max-width:none; max-height:none; width:auto; height:auto; object-fit:contain; border-radius:6px; cursor:grab; }
 .inline-lightbox img.lb-img:active { cursor:grabbing; }
 .inline-lightbox .lb-close,.inline-lightbox .lb-nav,.inline-lightbox .lb-meta { position:fixed; z-index:100000; }
@@ -98,15 +131,20 @@ main { height:calc(100vh - 56px); display:flex; overflow:hidden; }
   .image-search-layout { flex-direction:column; }
   .image-search-tree { width:100%; max-width:none; max-height:42%; border-right:0; border-bottom:1px solid var(--border); }
 }
+/* 파일보기 파일명 클릭 가능 */
+.file-name, .filename { cursor:pointer; }
 </style>
-</head>
+<style id="ak-scan-progress-css">
+#akScanProgress{position:fixed;left:50%;top:68px;transform:translateX(-50%);z-index:99999;background:rgba(25,25,32,.96);color:#fff;border:1px solid var(--border);border-radius:10px;padding:11px 15px;min-width:330px;box-shadow:0 8px 28px rgba(0,0,0,.35);font-size:.82rem;display:none}
+#akScanProgressTitle{font-weight:700;margin-bottom:6px}#akScanProgressBar{height:7px;background:#444;border-radius:5px;overflow:hidden}#akScanProgressFill{height:100%;width:0;background:#4da3ff;transition:width .12s}#akScanProgressDetail{margin-top:5px;color:#bbb;font-size:.74rem}
+</style></head>
 <body>
 <header>
-  <h1><span>ak</span>_picture · 이미지 검색</h1>
-  <button class="btn" id="btnImgSearchRescan">↻ 목록갱신</button>
-  <button class="btn primary" id="btnCacheDownload">⬇ 캐시 저장</button>
+  <h1><span>ak</span>_picture · 이미지 검색 <small style="font-size:13px;opacity:.7;font-weight:500">v1.36</small></h1>
+  <button class="btn primary" id="btnCacheDownload" style="margin-left:auto">⬇ JSON 저장</button>
 </header>
 <div class="toast" id="toast"></div>
+<div id="akScanProgress"><div id="akScanProgressTitle">폴더 구조 읽는 중…</div><div id="akScanProgressBar"><div id="akScanProgressFill"></div></div><div id="akScanProgressDetail">준비 중</div></div>
 
 <div class="inline-lightbox" id="globalLightbox" aria-modal="true" role="dialog">
   <button type="button" class="lb-close" id="globalLbClose">✕</button>
@@ -122,33 +160,54 @@ main { height:calc(100vh - 56px); display:flex; overflow:hidden; }
         <div class="tree-title root-title">
           <span id="imgSearchRootLabel">📁 폴더를 선택하세요</span>
           <button type="button" class="btn root-select-btn" id="btnImgSearchSelectRoot">폴더 선택</button>
+          <button type="button" class="btn" id="btnImgSearchRescan" title="선택 폴더의 폴더 구조와 파일 건수를 다시 조사하여 캐시를 갱신">ReScan</button>
           <input type="file" id="imgSearchFolderPicker" webkitdirectory directory multiple hidden>
         </div>
-        <div class="tree-fav-bar">
-          <button type="button" class="btn" id="btnImgSearchFavOnly" title="즐겨찾기한 배우 폴더만 표시">☆ 즐겨찾기만</button>
-          <button type="button" class="btn" id="btnImgSearchRescan" title="폴더 목록 다시 스캔">↻ 목록갱신</button>
-        </div>
         <div class="tree-view-mode-bar" title="이름 폴더는 항상 썸네일 · 하위 폴더만 List 적용">
-          <span class="label">보기</span>
           <div class="view-mode-combo" id="imgSearchViewMode" role="group" aria-label="보기 모드">
             <button type="button" data-mode="thumb" class="active">썸네일</button>
             <button type="button" data-mode="list">List</button>
           </div>
         </div>
-        <div id="imgSearchTreeBody"><div class="tree-empty">폴더 스캔 중…</div></div>
+        <div class="tree-file-view-toggle">
+          <button class="btn" id="btnImgSearchFavOnly" title="즐겨찾기한 폴더만 표시">☆ 즐겨찾기만</button>
+          <input type="checkbox" id="imgSearchFileView" />
+          <label for="imgSearchFileView">파일보기</label>
+        </div>
+        <div class="folder-search-bar">
+          <input type="search" id="imgSearchFolderFilter" placeholder="🔎 폴더 검색..." autocomplete="off" />
+          <button type="button" class="btn" id="btnImgSearchFolderFilterClear" title="검색 지우기">×</button>
+        </div>
+        <div class="img-tree-content">
+          <div class="img-tree-pane">
+            <div id="imgSearchTreeBody"><div class="tree-empty">폴더 스캔 중…</div></div>
+          </div>
+          <div id="imgSearchFileListSplitter" class="img-file-list-splitter" title="드래그하여 트리와 파일 목록 폭 조절"></div>
+          <div class="img-file-list-pane" id="imgSearchFileListPane">
+            <div class="img-file-list-title" id="imgSearchFileListTitle">선택 폴더 파일</div>
+            <div class="img-file-list" id="imgSearchFileList"><div class="img-file-empty">폴더를 선택하세요</div></div>
+          </div>
+        </div>
       </aside>
       <div id="imgSearchSplitter" class="img-search-splitter" title="드래그하여 트리 폭 조절"></div>
       <section class="image-search-main">
         <div class="inline-orient-panel">
-          <div class="inline-orient-tabs" id="imgSearchOrientTabs" role="tablist">
-            <button type="button" class="orient-tab active" data-orient="all" role="tab">전체 <span class="n">(0)</span></button>
-            <button type="button" class="orient-tab" data-orient="landscape" role="tab">가로 <span class="n">(0)</span></button>
-            <button type="button" class="orient-tab" data-orient="portrait" role="tab">세로 <span class="n">(0)</span></button>
-          </div>
-          <div class="inline-size-controls">
-            <label>이미지 크기</label>
-            <input type="range" id="imgSearchSizeRange" min="80" max="1000" value="160" step="10" />
-            <span class="size-val" id="imgSearchSizeVal">160px</span>
+          <div class="inline-orient-row">
+        <div class="inline-orient-tabs" id="imgSearchOrientTabs" role="tablist">
+              <button type="button" class="orient-tab active" data-orient="all" role="tab">전체 <span class="n">(0)</span></button>
+              <button type="button" class="orient-tab" data-orient="landscape" role="tab">가로 <span class="n">(0)</span></button>
+              <button type="button" class="orient-tab" data-orient="portrait" role="tab">세로 <span class="n">(0)</span></button>
+            </div>
+            <div class="inline-size-controls size-thumb-controls">
+              <label>썸네일</label>
+              <input type="range" id="imgSearchThumbSizeRange" min="80" max="1000" value="160" step="10" />
+              <span class="size-val" id="imgSearchThumbSizeVal">160px</span>
+            </div>
+                <div class="inline-size-controls size-list-controls">
+              <label>List</label>
+              <input type="range" id="imgSearchListSizeRange" min="80" max="2000" value="160" step="10" />
+              <span class="size-val" id="imgSearchListSizeVal">160px</span>
+            </div>
           </div>
         </div>
         <div class="inline-gallery-status" id="imgSearchStatus">폴더를 선택하세요</div>
@@ -160,6 +219,12 @@ main { height:calc(100vh - 56px); display:flex; overflow:hidden; }
 
 </main>
 
+
+<style>
+/* 즐겨찾기 별표: 기본 흰색, 선택 시에만 노란색 */
+.tree-fav-toggle { color:#fff; }
+.tree-fav-toggle.is-favorite { color:#ffd700; }
+</style>
 <script>
 
 const FOLDER_CACHE_FILE = "act_folder_cache.json";
@@ -170,9 +235,14 @@ let imgSearchRoot = null;
 let imgSearchSelectedKey = "";
 let imgSearchOrient = "all";
 let imgSearchSize = 160;
+let imgSearchThumbSize = 160;
+let imgSearchListSize = 160;
 let imgSearchFavOnly = false;
 let imgSearchViewMode = "thumb";
 let imgSearchListScale = 0.9;
+let imgSearchFileView = false;
+let imgSearchSelectedFileKey = "";
+
 
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;")
@@ -190,23 +260,202 @@ function showToast(msg) {
 
 async function loadFolderCacheFile() {
   if (FOLDER_CACHE) return FOLDER_CACHE;
+
+  // act_folder_cache.json은 ReScan에서 다음과 같은 래퍼 구조로 저장될 수 있습니다.
+  // { version, rootFolderName, selectedPath, updatedAt, cache: { "root::폴더명": {...} } }
+  // 과거 버전에서는 cache 자체가 최상위 객체였기 때문에 두 형식을 모두 지원합니다.
+  const normalizeCache = parsed => {
+    if (!parsed || typeof parsed !== "object") return null;
+    if (parsed.cache && typeof parsed.cache === "object") return parsed.cache;
+
+    // rootFolderName + node 형식도 직접 캐시로 사용할 수 있게 지원
+    if (parsed.node && parsed.rootFolderName) {
+      const key = getFolderCacheKey(parsed.rootFolderName);
+      return { [key]: parsed };
+    }
+
+    return parsed;
+  };
+
+  // Local web-server mode: HTML과 같은 폴더의 JSON을 최우선으로 읽습니다.
+  try {
+    const res = await fetch(FOLDER_CACHE_FILE + "?t=" + Date.now(), { cache: "no-store" });
+    if (res.ok) {
+      const parsed = await res.json();
+      const normalized = normalizeCache(parsed);
+      if (normalized && typeof normalized === "object") {
+        FOLDER_CACHE = normalized;
+        return FOLDER_CACHE;
+      }
+    }
+  } catch (e) {
+    console.warn("act_folder_cache.json load failed", e);
+  }
+
+  // 같은 브라우저의 마지막 저장본을 fallback으로 사용합니다.
   try {
     const raw = localStorage.getItem("ak_folder_cache_v1");
     if (raw) {
-      FOLDER_CACHE = JSON.parse(raw);
-      return FOLDER_CACHE;
+      const normalized = normalizeCache(JSON.parse(raw));
+      if (normalized && typeof normalized === "object") {
+        FOLDER_CACHE = normalized;
+        return FOLDER_CACHE;
+      }
     }
   } catch (e) {}
-  try {
-    const res = await fetch(FOLDER_CACHE_FILE, { cache: "no-store" });
-    if (res.ok) {
-      FOLDER_CACHE = await res.json();
-      try { localStorage.setItem("ak_folder_cache_v1", JSON.stringify(FOLDER_CACHE)); } catch (e) {}
-      return FOLDER_CACHE;
-    }
-  } catch (e) {}
-  FOLDER_CACHE = { act: null };
+
+  FOLDER_CACHE = {};
   return FOLDER_CACHE;
+}
+
+function getFolderCacheKey(rootName) {
+  return "root::" + String(rootName || "").trim().toLowerCase();
+}
+
+function findCachedFolder(cacheNode, pathEnc) {
+  if (!cacheNode) return null;
+  const target = String(pathEnc || "").replace(/\\/g, "/");
+  const walk = n => {
+    if (!n) return null;
+    if (String(n.pathEnc || "").replace(/\\/g, "/") === target) return n;
+    for (const c of (n.children || [])) {
+      const hit = walk(c); if (hit) return hit;
+    }
+    return null;
+  };
+  return walk(cacheNode);
+}
+
+function snapshotImgCacheNode(node) {
+  if (!node) return null;
+  const cached = node._cachedInfo || null;
+  const cachedCount = cached && Number.isFinite(Number(cached.count)) ? Number(cached.count) : 0;
+  const cachedDirect = cached && Number.isFinite(Number(cached.directCount)) ? Number(cached.directCount) : null;
+  const hasConfirmedCount = node._countConfirmed === true || node._filesLoaded === true;
+  const directKnown = node._directCountConfirmed === true;
+  const directCount = directKnown
+    ? (Number.isFinite(Number(node._directImgCount)) ? Number(node._directImgCount) : 0)
+    : (cachedDirect != null ? cachedDirect : null);
+
+  const children = (node.children || []).map(snapshotImgCacheNode).filter(Boolean);
+  const childTotal = children.reduce((sum, c) => sum + (Number(c.count) || 0), 0);
+  // 상위 폴더 count는 항상 '직접 파일 수 + 모든 자식 폴더 count 합계'입니다.
+  // 구형 JSON에는 directCount가 없으므로 기존 count에서 자식 합계를 빼서 직접 파일 수를 복원합니다.
+  const resolvedDirect = directCount != null
+    ? directCount
+    : Math.max(0, cachedCount - childTotal);
+  const count = resolvedDirect + childTotal;
+
+  return {
+    name: node.name || node.label || "",
+    pathEnc: node.pathEnc || "./",
+    count,
+    directCount: resolvedDirect,
+    hasSubfolders: children.length > 0 || node._hasSubfolders === true || cached?.hasSubfolders === true,
+    favorite: !!node.favorite,
+    children
+  };
+}
+
+function getCurrentRootCache() {
+  if (!imgSearchRoot) return null;
+  const key = getFolderCacheKey(imgSearchRoot.name);
+  return {
+    key,
+    updated: new Date().toISOString().slice(0, 19),
+    rootLabel: imgSearchRoot.name || "",
+    rootPathEnc: "./",
+    node: snapshotImgCacheNode(imgSearchRoot)
+  };
+}
+
+function applyCachedNodeInfo(node, cached, includeChildren=true) {
+  if (!node || !cached) return;
+  if (Number.isFinite(Number(cached.count))) node.imgCount = Number(cached.count);
+  if (Number.isFinite(Number(cached.directCount))) {
+    node._directImgCount = Number(cached.directCount);
+    node._directCountConfirmed = false;
+  }
+  if (typeof cached.hasSubfolders === "boolean") {
+    node._hasSubfolders = cached.hasSubfolders;
+    node._hasSubfoldersChecked = true;
+  }
+  if (typeof cached.favorite === "boolean") node.favorite = cached.favorite;
+  if (!includeChildren || !Array.isArray(cached.children)) return;
+
+  // 캐시의 children 전체를 재귀적으로 트리 노드로 복원합니다.
+  // 기존 코드는 root의 1단계 자식만 placeholder로 만들어서,
+  // JSON에 저장된 2단계 이하의 폴더와 파일 건수가 화면에 나타나지 않았습니다.
+  const existing = new Map((node.children || []).map(c => [String(c.pathEnc || c.key), c]));
+  const makeCachedNode = (c, parentPath) => {
+    const rawPath = String(c.pathEnc || "");
+    const path = rawPath
+      ? (rawPath.endsWith("/") ? rawPath : rawPath + "/")
+      : (parentPath + String(c.name || "") + "/");
+    const old = existing.get(path);
+    const child = old || {
+      key: path,
+      name: c.name || path.split("/").filter(Boolean).pop() || "",
+      label: c.name || path.split("/").filter(Boolean).pop() || "",
+      pathEnc: path,
+      files: [], _fileHandles: [], children: [],
+      isRoot: false, _filesLoaded: false, _structureLoaded: false,
+      _needsScan: true, _hasSubfolders: false, _hasSubfoldersChecked: false,
+      _cached: true, _handle: null, favorite: false
+    };
+    child.key = path;
+    child.pathEnc = path;
+    child.name = c.name || child.name;
+    child.label = child.name;
+    child._cached = true;
+    child._cachedInfo = c;
+    child._needsScan = !child._handle;
+    child._hasSubfolders = c.hasSubfolders === true;
+    child._hasSubfoldersChecked = typeof c.hasSubfolders === "boolean";
+    child.favorite = !!c.favorite;
+    child.imgCount = Number.isFinite(Number(c.count)) ? Number(c.count) : 0;
+    child._directImgCount = Number.isFinite(Number(c.directCount)) ? Number(c.directCount) : null;
+    child._directCountConfirmed = false;
+    child._countConfirmed = false;
+
+    const cachedChildren = Array.isArray(c.children) ? c.children : [];
+    const previous = new Map((child.children || []).map(x => [String(x.pathEnc || x.key), x]));
+    child.children = cachedChildren.map(cc => {
+      const saved = existing.get(String(cc.pathEnc || "")) || previous.get(String(cc.pathEnc || ""));
+      if (saved) {
+        // 실제 handle이 이미 있는 경우 handle은 보존하면서 캐시 정보만 갱신합니다.
+        const merged = makeCachedNode(cc, path);
+        if (saved._handle) merged._handle = saved._handle;
+        return merged;
+      }
+      return makeCachedNode(cc, path);
+    });
+    return child;
+  };
+
+  node.children = cached.children.map(c => makeCachedNode(c, node.pathEnc || "./"));
+  node.children.sort((a,b) => String(a.name).localeCompare(String(b.name), "ja"));
+  const cachedChildTotal = node.children.reduce((sum, c) => sum + countImgAll(c), 0);
+  const cachedDirect = Number.isFinite(Number(cached.directCount))
+    ? Number(cached.directCount)
+    : Math.max(0, (Number(cached.count) || 0) - cachedChildTotal);
+  node._directImgCount = cachedDirect;
+  node._directCountConfirmed = false;
+  node.imgCount = cachedDirect + cachedChildTotal;
+  node._hasSubfolders = node.children.length > 0 || node._hasSubfolders === true;
+  node._hasSubfoldersChecked = true;
+}
+
+function applyFolderCacheToRoot(root) {
+  if (!root) return false;
+  const key = getFolderCacheKey(root.name);
+  let cached = FOLDER_CACHE && FOLDER_CACHE[key];
+  // legacy cache compatibility: an older file may have stored the root under "act".
+  if (!cached && FOLDER_CACHE && FOLDER_CACHE.act) cached = FOLDER_CACHE.act;
+  if (!cached) return false;
+  const info = cached.node || cached;
+  applyCachedNodeInfo(root, info, true);
+  return true;
 }
 
 function saveFolderCacheLocal() {
@@ -215,38 +464,170 @@ function saveFolderCacheLocal() {
   } catch (e) {}
 }
 
-function downloadFolderCacheFile() {
-  try {
-    const blob = new Blob([JSON.stringify(FOLDER_CACHE || {}, null, 2)],
-      { type: "application/json;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = FOLDER_CACHE_FILE;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  } catch (e) {}
+function downloadJsonFile(name, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json;charset=utf-8"
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-function formatActressFolderLabel(folderName) {
+async function downloadFolderCacheFile() {
+  try {
+    const root = imgSearchRoot;
+    if (!root) {
+      showToast("먼저 '폴더 선택'으로 이미지 폴더를 선택하세요.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const cacheKey = getFolderCacheKey(root.name);
+    if (!FOLDER_CACHE) FOLDER_CACHE = {};
+
+    // 저장의 기준은 '현재 메모리 트리'입니다.
+    // 중요: snapshot 후 다시 findImgNode()로 확인하면 key/path 차이 때문에
+    // 실제로 확인된 폴더가 미확인으로 판정될 수 있으므로, 각 live node에서
+    // 확인 상태와 건수를 직접 읽어 저장합니다.
+    const oldRootCache = FOLDER_CACHE[cacheKey]?.node || FOLDER_CACHE[cacheKey] || null;
+
+    const normalizePath = p => String(p || "").replace(/\\/g, "/").replace(/\/+/g, "/");
+    const oldChildrenMap = old => new Map((old?.children || []).map(c => [normalizePath(c.pathEnc), c]));
+
+    const makeSnapshot = (node, old) => {
+      if (!node) return old || null;
+      const oldCount = Number.isFinite(Number(old?.count)) ? Number(old.count) : 0;
+      const oldDirect = Number.isFinite(Number(old?.directCount)) ? Number(old.directCount) : null;
+      const confirmed = node._countConfirmed === true || node._filesLoaded === true;
+      const directKnown = node._directCountConfirmed === true;
+      const liveDirect = directKnown
+        ? (Number.isFinite(Number(node._directImgCount)) ? Number(node._directImgCount) : 0)
+        : (oldDirect != null ? oldDirect : null);
+
+      const oldKids = oldChildrenMap(old);
+      const liveKids = Array.isArray(node.children) ? node.children : [];
+      const liveKeys = new Set(liveKids.map(c => normalizePath(c.pathEnc)));
+      const children = [];
+
+      // 현재 메모리에 존재하는 폴더는 현재 상태를 저장하고,
+      // 아직 메모리에 만들어지지 않은 기존 캐시 폴더는 기존 정보를 보존합니다.
+      for (const child of liveKids) {
+        const key = normalizePath(child.pathEnc);
+        children.push(makeSnapshot(child, oldKids.get(key)));
+      }
+      for (const [key, oldChild] of oldKids) {
+        if (!liveKeys.has(key)) children.push(oldChild);
+      }
+      children.sort((a,b) => String(a.name || "").localeCompare(String(b.name || ""), "ja"));
+      const childTotal = children.reduce((sum, c) => sum + (Number(c.count) || 0), 0);
+      const directCount = liveDirect != null ? liveDirect : Math.max(0, oldCount - childTotal);
+      const count = directCount + childTotal;
+
+      return {
+        name: node.name || node.label || old?.name || "",
+        pathEnc: node.pathEnc || old?.pathEnc || "./",
+        count,
+        directCount,
+        hasSubfolders: children.length > 0 || node._hasSubfolders === true || old?.hasSubfolders === true,
+        favorite: !!node.favorite,
+        children
+      };
+    };
+
+    const mergedRootSnapshot = makeSnapshot(root, oldRootCache);
+
+    FOLDER_CACHE[cacheKey] = {
+      updated: now,
+      rootLabel: root.name || "",
+      rootPathEnc: "./",
+      node: mergedRootSnapshot
+    };
+
+    // localStorage에도 같은 최종 데이터를 저장합니다.
+    saveFolderCacheLocal();
+
+    const cachePayload = {
+      version: 4,
+      rootFolderName: root.name || "",
+      selectedPath: imgPictureSettings.selectedPath || "./",
+      updatedAt: now,
+      cache: FOLDER_CACHE
+    };
+
+    const settingsPayload = {
+      version: IMG_SETTINGS_VERSION,
+      treeWidth: Math.round(Number(imgPictureSettings.treeWidth) || 300),
+      fileListWidth: Math.max(20, Math.min(80, Number(imgPictureSettings.fileListWidth) || 45)),
+      viewMode: imgPictureSettings.viewMode === "list" ? "list" : "thumb",
+      thumbSize: Math.round(Number(imgPictureSettings.thumbSize) || 160),
+      listSize: Math.round(Number(imgPictureSettings.listSize) || 160),
+      selectedPath: imgPictureSettings.selectedPath || "./",
+      rootFolderName: root.name || window.__imgRootHandle?.name || "",
+      favoriteFolders: JSON.parse(JSON.stringify(imgPictureSettings.favoriteFolders || {})),
+      treeCollapsed: JSON.parse(JSON.stringify(window.__imgTreeCollapsed || { act: {} })),
+      updatedAt: now
+    };
+
+    downloadJsonFile(FOLDER_CACHE_FILE, cachePayload);
+    setTimeout(() => downloadJsonFile(IMG_SETTINGS_FILE, settingsPayload), 250);
+
+    try {
+      localStorage.setItem("ak_picture_settings_v1", JSON.stringify(settingsPayload));
+    } catch (e) {}
+
+    if (window.__imgRootHandle) await saveImgRootHandle(window.__imgRootHandle);
+
+    showToast("JSON 저장 완료 · 확인된 폴더 건수를 유지하여 저장했습니다");
+  } catch (e) {
+    console.error(e);
+    showToast("JSON 저장 실패: " + (e?.message || e));
+  }
+}
+function applyFavoriteStateFromSettings(root) {
+  if (!root) return;
+  const fav = imgPictureSettings.favoriteFolders || {};
+  const normalize = v => String(v || "").replace(/\\/g, "/").replace(/\/+$/, "");
+  const walk = n => {
+    if (!n) return;
+    const path = normalize(n.pathEnc || n.key);
+    n.favorite = !!fav[path];
+    (n.children || []).forEach(walk);
+  };
+  walk(root);
+}
+
+function toggleImgFolderFavorite(node) {
+  if (!node || node.isRoot) return;
+  const path = String(node.pathEnc || node.key || "").replace(/\\/g, "/");
+  if (!imgPictureSettings.favoriteFolders) imgPictureSettings.favoriteFolders = {};
+  node.favorite = !node.favorite;
+  if (node.favorite) imgPictureSettings.favoriteFolders[path] = true;
+  else delete imgPictureSettings.favoriteFolders[path];
+}
+
+function formatImageFolderLabel(folderName) {
   return folderName;
 }
 
 function getFavoriteFolderNames() {
-  // Standalone 파일에서는 배우 DB가 없으므로 즐겨찾기 필터는
-  // 별도 배우 데이터가 제공되는 경우에만 동작하도록 호환 처리.
   const names = new Set();
-  const acts = Array.isArray(window.ACTRESSES) ? window.ACTRESSES : [];
-  acts.forEach(a => {
-    if (!a || !a.favorite) return;
-    const add = n => {
-      if (typeof n === "string" && n.trim()) names.add(n.trim());
-    };
-    add(a.nameJa);
-    (a.aliases || []).forEach(add);
-    (a.nameHistory || []).forEach(h => h && add(h.nameJa));
-  });
+  const fav = imgPictureSettings.favoriteFolders || {};
+  Object.keys(fav).forEach(k => { if (fav[k]) names.add(k); });
   return names;
 }
+
+function isFavoriteFilterVisible(node, scope) {
+  if (!node) return false;
+  if (node.favorite) return true;
+  return (node.children || []).some(c => isFavoriteFilterVisible(c, scope));
+}
+
 
 function getGlobalLightbox() {
   if (window.__globalLb) return window.__globalLb;
@@ -266,7 +647,7 @@ function getGlobalLightbox() {
   let index = 0;
   let scale = 1;
   let baseW = 0, baseH = 0;
-  const MIN_SCALE = 0.4, MAX_SCALE = 3;
+  const MIN_SCALE = 0.4, MAX_SCALE = 10;
   let active = false, drag = null, dragged = false;
 
   function calcBaseSize() {
@@ -370,10 +751,34 @@ function getGlobalLightbox() {
   });
   img.addEventListener("click", e => e.stopPropagation());
 
-  lb.addEventListener("wheel", e => {
+  // 확대 이미지 더블클릭: 100% 비율로 복귀
+  img.addEventListener("dblclick", e => {
     if (!isOpen()) return;
     e.preventDefault();
-    zoomBy(e.deltaY < 0 ? 1 : -1, e.clientX, e.clientY);
+    e.stopPropagation();
+    scale = 1;
+    applyScale();
+    updateMeta();
+    centerScroll();
+  });
+
+  lb.addEventListener("wheel", e => {
+    if (!isOpen()) return;
+    if (e.ctrlKey) {
+      // Ctrl + wheel: zoom while keeping the point under the cursor fixed.
+      e.preventDefault();
+      zoomBy(e.deltaY < 0 ? 1 : -1, e.clientX, e.clientY);
+      return;
+    }
+    // After zooming, ordinary mouse-wheel scrolling pans the image.
+    // Shift + wheel is used for horizontal panning on a standard mouse.
+    if (scale > 1.001) {
+      e.preventDefault();
+      const dx = e.shiftKey ? (e.deltaY || e.deltaX) : (e.deltaX || 0);
+      const dy = e.shiftKey ? 0 : (e.deltaY || 0);
+      lb.scrollLeft += dx;
+      lb.scrollTop += dy;
+    }
   }, { passive: false });
 
   const onMove = e => {
@@ -503,10 +908,14 @@ async function scanImgNode(name, pathEnc, depth) {
 
 function countImgAll(node) {
   if (!node) return 0;
-  if (typeof node.imgCount === "number" && !node._filesLoaded) return node.imgCount;
-  let n = (node.files || []).length;
-  (node.children || []).forEach(c => { n += countImgAll(c); });
-  return n;
+  const direct = Number.isFinite(Number(node._directImgCount))
+    ? Number(node._directImgCount)
+    : (node._filesLoaded || node._countConfirmed ? (node.files || []).length :
+       (Number.isFinite(Number(node.imgCount)) && !(node.children || []).length ? Number(node.imgCount) : 0));
+  const childTotal = (node.children || []).reduce((sum, c) => sum + countImgAll(c), 0);
+  const total = direct + childTotal;
+  node.imgCount = total;
+  return total;
 }
 
 async function countImagesInDir(pathEnc, depth) {
@@ -584,6 +993,27 @@ async function scanTopFolderIndex(cacheKey, rootLabel, rootPathEnc, useCache) {
 }
 
 
+async function probeImgHasSubfolders(node) {
+  if (!node || node.isRoot || node._hasSubfoldersChecked || !node._handle) return !!(node && node._hasSubfolders);
+  try {
+    // 이 폴더 하나만 확인하고, 첫 번째 하위 디렉터리를 찾는 즉시 종료한다.
+    for await (const [, entry] of node._handle.entries()) {
+      if (entry.kind === "directory") {
+        node._hasSubfolders = true;
+        node._hasSubfoldersChecked = true;
+        return true;
+      }
+    }
+    node._hasSubfolders = false;
+    node._hasSubfoldersChecked = true;
+    return false;
+  } catch (e) {
+    node._hasSubfolders = false;
+    node._hasSubfoldersChecked = true;
+    return false;
+  }
+}
+
 async function ensureImgNodeStructureLoaded(node) {
   if (!node) return node;
   if (node._structureLoaded && !node._needsScan) return node;
@@ -612,16 +1042,22 @@ async function ensureImgNodeStructureLoaded(node) {
       return a[0].localeCompare(b[0], "ja");
     });
 
+    // 실제 폴더를 다시 읽더라도, 이전에 사용자가 확인해서 메모리에 확정한
+    // 하위 폴더의 건수(_countConfirmed)는 절대로 잃지 않는다.
+    // 기존 구현은 children=[]로 초기화하면서 이 정보를 버렸고, 이후 JSON 저장 시
+    // 캐시의 0이 다시 들어가는 문제가 발생할 수 있었다.
+    const previousChildren = new Map((node.children || []).map(c => [String(c.pathEnc || c.key), c]));
     node.files = [];
     node._fileHandles = [];
-    node.children = node.children || [];
+    node.children = [];
 
     for (const [name, entry] of entries) {
       if (entry.kind === "directory") {
         const childPath = node.pathEnc
           ? node.pathEnc + name + "/"
           : "./" + name + "/";
-        node.children.push({
+        const previous = previousChildren.get(childPath);
+        const child = previous || {
           key: childPath,
           name,
           label: name,
@@ -633,17 +1069,51 @@ async function ensureImgNodeStructureLoaded(node) {
           _filesLoaded: false,
           _structureLoaded: false,
           _needsScan: true,
+          _hasSubfolders: false,
+          _hasSubfoldersChecked: false,
           _handle: entry,
           _scanDepth: (node._scanDepth || 0) + 1
-        });
+        };
+        child.key = childPath;
+        child.name = name;
+        child.label = name;
+        child.pathEnc = childPath;
+        child._handle = entry;
+        // 이전에 실제 확인한 건수/상태는 유지한다.
+        if (!previous) {
+          child._countConfirmed = false;
+          child._filesLoaded = false;
+        }
+        node.children.push(child);
       } else if (IMAGE_RE.test(name)) {
         node._fileHandles.push({ name, handle: entry });
       }
     }
 
-    node.imgCount = node._fileHandles.length;
+    node._directImgCount = node._fileHandles.length;
+    node._directCountConfirmed = true;
+    node.imgCount = node._directImgCount;
+    node._countConfirmed = true;
+    node._hasSubfolders = node.children.length > 0;
+    node._hasSubfoldersChecked = true;
     node._structureLoaded = true;
+    // Merge the already saved folder-structure cache into this freshly scanned node.
+    const rootCache = FOLDER_CACHE && FOLDER_CACHE[getFolderCacheKey(imgSearchRoot?.name)];
+    const cachedNode = rootCache ? findCachedFolder(rootCache.node || rootCache, node.pathEnc) : null;
+    if (cachedNode) {
+      for (const child of node.children) {
+        const cc = (cachedNode.children || []).find(x => String(x.pathEnc || "").replace(/\\/g, "/") === String(child.pathEnc || "").replace(/\\/g, "/"));
+        if (cc) {
+          // 실제 handle/실제 파일목록은 새로 읽은 값을 우선하고,
+          // 아직 읽지 않은 하위 폴더의 캐시 건수/트리는 보존합니다.
+          applyCachedNodeInfo(child, cc, true);
+          child._handle = child._handle || null;
+        }
+      }
+    }
     node._needsScan = false;
+    akSetScanProgress("하위 폴더 읽기 완료", (node.name || "폴더") + " · 이미지 파일 내용은 지연 로드", 100);
+    setTimeout(() => akSetScanProgress("", "", 0, true), 500);
     return node;
   } catch (e) {
     console.error("on-demand folder scan failed", e);
@@ -679,6 +1149,7 @@ async function refreshImgTreeFileCounts(rootNode) {
       }
     }
 
+    countImgAll(rootNode);
     renderImageSearchTree();
     // 브라우저 이벤트/클릭 처리를 충분히 양보한다.
     await new Promise(r => setTimeout(r, 0));
@@ -688,47 +1159,20 @@ async function refreshImgTreeFileCounts(rootNode) {
 }
 
 async function ensureFolderImagesLoaded(node) {
-  if (!node || node.isRoot) return node;
+  if (!node) return node;
   await ensureImgNodeStructureLoaded(node);
   if (node._filesLoaded) return node;
 
-  // Fast-scan nodes keep FileSystemFileHandles instead of opening every file.
-  // Only the selected folder is materialized into File/ObjectURL objects.
-  const loadNodeFiles = async (n) => {
-    if (!n) return;
-    if (!n._filesLoaded) {
-      n.files = n.files || [];
-      const handles = n._fileHandles || [];
-      const out = [];
-      const BATCH = 80;
-
-      for (let i = 0; i < handles.length; i += BATCH) {
-        const slice = handles.slice(i, i + BATCH);
-        const got = await Promise.all(slice.map(async h => {
-          try {
-            const file = await h.handle.getFile();
-            return { name: h.name, src: null, file, handle: h.handle };
-          } catch (e) {
-            return null;
-          }
-        }));
-        got.forEach(x => { if (x) out.push(x); });
-        if (i + BATCH < handles.length) {
-          await new Promise(r => requestAnimationFrame(r));
-        }
-      }
-
-      n.files = out;
-      n._filesLoaded = true;
-      n.imgCount = out.length;
-    }
-
-    // Do not recursively open descendants during first folder selection.
-    // Descendants are scanned/materialized only when the user selects them.
-    return n;
-  };
-
-  await loadNodeFiles(node);
+  // 파일 자체는 열지 않고 Handle만 가볍게 레코드로 만든다.
+  // 실제 getFile()/ObjectURL은 갤러리에 표시되는 배치에서만 수행한다.
+  const handles = node._fileHandles || [];
+  node.files = handles.map(h => ({ name: h.name, src: null, file: null, handle: h.handle }));
+  node._filesLoaded = true;
+  node._directImgCount = node.files.length;
+  node._directCountConfirmed = true;
+  node.imgCount = node._directImgCount;
+  node._countConfirmed = true;
+  countImgAll(node);
   return node;
 }
 
@@ -745,7 +1189,10 @@ async function enrichAllFolderStructures(root, statusEl) {
       if (full) {
         c.files = full.files || [];
         c.children = full.children || [];
+        c._directImgCount = (c.files || []).length;
+        c._directCountConfirmed = true;
         c.imgCount = countImgAll(c);
+        c._countConfirmed = true;
       }
       c._filesLoaded = true;
     }));
@@ -757,7 +1204,120 @@ function isRootSelected(root, selectedKey) {
   return selectedKey === root.key;
 }
 
-function renderActressFolderList(gal, status, root, favOnly, onSelectKey) {
+const folderTranslationCache = new Map();
+let folderTranslationTip = null;
+let folderTranslationTimer = null;
+
+function ensureFolderTranslationTip() {
+  if (folderTranslationTip) return folderTranslationTip;
+  const tip = document.createElement("div");
+  tip.className = "folder-translation-tip";
+  tip.innerHTML = '<div class="jp"></div><div class="ko">번역 중…</div>';
+  document.body.appendChild(tip);
+  folderTranslationTip = tip;
+  return tip;
+}
+
+function positionFolderTranslationTip(row) {
+  const tip = ensureFolderTranslationTip();
+  const r = row.getBoundingClientRect();
+  const tw = Math.min(520, Math.max(220, tip.offsetWidth || 320));
+  let left = r.left;
+  if (left + tw > window.innerWidth - 12) left = Math.max(12, window.innerWidth - tw - 12);
+  let top = r.bottom + 8;
+  if (top + tip.offsetHeight > window.innerHeight - 12) top = Math.max(12, r.top - tip.offsetHeight - 8);
+  tip.style.left = left + "px";
+  tip.style.top = top + "px";
+}
+
+// 오프라인에서도 자주 쓰이는 폴더명은 즉시 자연스러운 한국어를 보여준다.
+const COMMON_JP_KO = {
+  "子ども": "어린이",
+  "子どもの": "어린이의",
+  "身体": "신체",
+  "所見": "소견",
+  "保健": "보건",
+  "体育": "체육",
+  "健康": "건강",
+  "写真": "사진",
+  "画像": "이미지",
+  "動画": "동영상",
+  "資料": "자료",
+  "作品": "작품",
+  "撮影": "촬영",
+  "制服": "교복",
+  "水着": "수영복",
+  "雑誌": "잡지",
+  "写真集": "사진집",
+  "出演": "출연",
+  "名前": "이름",
+  "保健体育": "보건체육"
+};
+
+function localFolderTranslation(text) {
+  let out = String(text || "").trim();
+  if (!out) return "";
+  // 대괄호 안의 태그/고유명사는 유지하고 일반적인 일본어 표현만 치환한다.
+  Object.keys(COMMON_JP_KO).sort((a,b)=>b.length-a.length).forEach(jp => {
+    out = out.replaceAll(jp, COMMON_JP_KO[jp]);
+  });
+  return out === text ? "" : out;
+}
+
+async function translateFolderNameToKorean(name) {
+  const text = String(name || "").trim();
+  if (!text) return "";
+  if (folderTranslationCache.has(text)) return folderTranslationCache.get(text);
+  const local = localFolderTranslation(text);
+  if (local) {
+    folderTranslationCache.set(text, local);
+    return local;
+  }
+  try {
+    const url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=ko&dt=t&q=" + encodeURIComponent(text);
+    const res = await fetch(url, { cache:"force-cache" });
+    if (res.ok) {
+      const data = await res.json();
+      const translated = Array.isArray(data) && Array.isArray(data[0])
+        ? data[0].map(x => Array.isArray(x) ? x[0] : "").filter(Boolean).join("")
+        : "";
+      if (translated) {
+        folderTranslationCache.set(text, translated);
+        return translated;
+      }
+    }
+  } catch (e) {
+    // 인터넷/번역 서버가 없어도 폴더 목록 자체는 정상 동작한다.
+  }
+  folderTranslationCache.set(text, text);
+  return text;
+}
+
+function hideFolderTranslationTip() {
+  if (folderTranslationTimer) clearTimeout(folderTranslationTimer);
+  if (folderTranslationTip) folderTranslationTip.classList.remove("show");
+}
+
+function bindFolderTranslationTooltip(row, folderName) {
+  let active = false;
+  row.addEventListener("mouseenter", async () => {
+    active = true;
+    const tip = ensureFolderTranslationTip();
+    tip.querySelector(".jp").textContent = String(folderName || "");
+    tip.querySelector(".ko").textContent = "한국어 번역 중…";
+    tip.classList.add("show");
+    positionFolderTranslationTip(row);
+    const ko = await translateFolderNameToKorean(folderName);
+    if (!active) return;
+    tip.querySelector(".ko").textContent = ko || folderName;
+    positionFolderTranslationTip(row);
+  });
+  row.addEventListener("mouseleave", () => { active = false; hideFolderTranslationTip(); });
+  row.addEventListener("focus", () => row.dispatchEvent(new Event("mouseenter")));
+  row.addEventListener("blur", () => hideFolderTranslationTip());
+}
+
+function renderImageFolderList(gal, status, root, favOnly, onSelectKey) {
   gal.innerHTML = "";
   let children = (root && root.children) ? root.children.slice() : [];
   if (favOnly) {
@@ -767,27 +1327,29 @@ function renderActressFolderList(gal, status, root, favOnly, onSelectKey) {
   }
   children.sort((a, b) => String(a.name).localeCompare(String(b.name), "ja"));
 
-  if (status) status.textContent = "배우 폴더 " + children.length +
+  if (status) status.textContent = "이미지 폴더 " + children.length +
     "개 · 폴더를 선택하면 이미지를 불러옵니다";
 
   if (!children.length) {
     const empty = document.createElement("div");
     empty.className = "tree-empty";
     empty.style.padding = "24px";
-    empty.textContent = favOnly ? "즐겨찾기 배우 폴더 없음" : "표시할 배우 폴더가 없습니다";
+    empty.textContent = favOnly ? "즐겨찾기 이미지 폴더 없음" : "표시할 이미지 폴더가 없습니다";
     gal.appendChild(empty);
     return;
   }
 
   const list = document.createElement("div");
-  list.className = "actress-folder-list";
+  list.className = "image-folder-list";
   children.forEach(c => {
     const row = document.createElement("button");
     row.type = "button";
-    row.className = "actress-folder-row";
-    row.innerHTML = '<span class="afr-name">' + esc(formatActressFolderLabel(c.name)) +
+    row.className = "image-folder-row";
+    row.innerHTML = '<span class="afr-name">' + esc(formatImageFolderLabel(c.name)) +
       '</span><span class="afr-count">이미지 ' + countImgAll(c) + '</span>';
-    row.title = c.name;
+    // 기존 브라우저 기본 title 말풍선은 제거하고 한국어 번역 말풍선만 표시
+    row.removeAttribute("title");
+    bindFolderTranslationTooltip(row, c.name);
     row.addEventListener("click", () => onSelectKey(c.key));
     list.appendChild(row);
   });
@@ -811,15 +1373,19 @@ function findImgNode(node, key) {
 
 if (!window.__imgTreeCollapsed) window.__imgTreeCollapsed = { act: {} };
 function isTreeCollapsed(side, key) {
-  return !!(window.__imgTreeCollapsed[side] && window.__imgTreeCollapsed[side][key]);
+  const map = window.__imgTreeCollapsed[side] || {};
+  // Root is open; every subfolder starts collapsed until the user opens it.
+  if (key === "__selected_root__") return false;
+  return Object.prototype.hasOwnProperty.call(map, key) ? !!map[key] : true;
 }
 function toggleTreeCollapsed(side, key) {
   if (!window.__imgTreeCollapsed[side]) window.__imgTreeCollapsed[side] = {};
-  if (window.__imgTreeCollapsed[side][key]) delete window.__imgTreeCollapsed[side][key];
-  else window.__imgTreeCollapsed[side][key] = true;
+  const current = isTreeCollapsed(side, key);
+  window.__imgTreeCollapsed[side][key] = !current;
 }
 
 function renderImageSearchTree() {
+  initImgFolderSearch();
   const body = document.getElementById("imgSearchTreeBody");
   if (!body) return;
   if (!imgSearchRoot) {
@@ -828,10 +1394,10 @@ function renderImageSearchTree() {
     return;
   }
 
-  const favNames = imgSearchFavOnly ? getFavoriteFolderNames() : null;
-  let topChildren = (imgSearchRoot.children || []).filter(c =>
-    !favNames || favNames.has(c.name) || favNames.has(c.label));
-
+  const favoriteScope = imgSearchRoot;
+  const topChildren = (imgSearchRoot.children || []).filter(c =>
+    (!imgSearchFavOnly || isFavoriteFilterVisible(c, favoriteScope)) &&
+    (!imgSearchFolderFilter || imgFolderHasMatch(c, imgSearchFolderFilter)));
   if (imgSearchFavOnly && topChildren.length === 0) {
     body.innerHTML = '<div class="tree-empty">즐겨찾기 폴더가 없습니다</div>';
     return;
@@ -839,72 +1405,312 @@ function renderImageSearchTree() {
 
   const frag = document.createDocumentFragment();
   const sel = imgSearchSelectedKey || imgSearchRoot.key;
+  const probeTargets = [];
 
   function makeItem(node, label, count, depth) {
-    const key = node.key, kids = node.children || [], hasSub = kids.length > 0;
+    const key = node.key;
+    const hasSub = node.isRoot ? ((node.children || []).length > 0) : node._hasSubfolders === true;
     const collapsed = hasSub && isTreeCollapsed("act", key);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "tree-item" + (key === sel ? " active" : "");
+    btn.dataset.folderKey = key;
     btn.style.paddingLeft = (6 + depth * 14) + "px";
-    const twist = hasSub ? (collapsed ? "▶" : "▼") : "·";
+    const twist = hasSub ? (collapsed ? "▶" : "▼") : "";
     btn.innerHTML = '<span class="tree-twist' + (hasSub ? "" : " is-leaf") +
       '" data-twist="1">' + twist + '</span><span class="tree-ico">📁</span>' +
       '<span class="tree-label" title="' + esc(label) + '">' + esc(label) +
-      '</span><span class="tree-count">' + count + '</span>';
-    btn.addEventListener("click", e => {
-      if (e.target && e.target.getAttribute("data-twist") === "1" && hasSub) {
+      '</span><span class="tree-count">' + count + '</span>' +
+      (node.isRoot ? '' : '<span class="tree-fav-toggle' + (node.favorite ? ' is-favorite' : '') + '" title="즐겨찾기">' + (node.favorite ? '★' : '☆') + '</span>');
+
+    btn.addEventListener("click", async e => {
+      if (e.target.closest('.tree-fav-toggle')) {
+        e.preventDefault();
         e.stopPropagation();
-        toggleTreeCollapsed("act", key);
+        toggleImgFolderFavorite(node);
         renderImageSearchTree();
         return;
       }
-      selectImgSearchFolder(key);
+      e.preventDefault();
+      // Selection never waits for a recursive scan.
+      if (node.isRoot) {
+        // 루트를 실제로 클릭한 경우에만 실제 폴더를 읽어 직접 이미지 건수를 확정합니다.
+        if (node._handle && !node._countConfirmed) await ensureImgNodeStructureLoaded(node);
+        await selectImgSearchFolder(key);
+        renderImageSearchTree();
+        return;
+      }
+      // If this visible folder has not been checked, probe only this folder.
+      if (!node._hasSubfoldersChecked) {
+        await probeImgHasSubfolders(node);
+      }
+      if (node._hasSubfolders === true) {
+        toggleTreeCollapsed("act", key);
+      }
+      renderImageSearchTree();
+      await selectImgSearchFolder(key);
     });
+
+    // Probe only rows currently rendered. Descendants are not recursively scanned.
+    if (!node.isRoot && !node._hasSubfoldersChecked) probeTargets.push({node, btn});
     return btn;
   }
 
   function walk(node, depth) {
+    const filter = imgSearchFolderFilter;
+    if (filter && !imgFolderHasMatch(node, filter)) return;
     frag.appendChild(makeItem(node, node.name || node.label, countImgAll(node), depth));
-    if ((node.children || []).length && !isTreeCollapsed("act", node.key)) {
-      node.children.forEach(c => walk(c, depth + 1));
+    const forceOpen = !!filter;
+    if ((node.children || []).length && (forceOpen || !isTreeCollapsed("act", node.key))) {
+      node.children
+        .filter(c => !imgSearchFavOnly || isFavoriteFilterVisible(c, favoriteScope))
+        .filter(c => !filter || imgFolderHasMatch(c, filter))
+        .forEach(c => walk(c, depth + 1));
     }
   }
 
   const rootNode = {
     key: imgSearchRoot.key,
-    name: imgSearchRoot.label + (imgSearchFavOnly ? " ★" : ""),
-    label: imgSearchRoot.label, children: topChildren, isRoot: true
+    name: imgSearchRoot.label,
+    label: imgSearchRoot.label,
+    children: topChildren,
+    isRoot: true
   };
   frag.appendChild(makeItem(rootNode, rootNode.name,
-    topChildren.reduce((s, c) => s + countImgAll(c), 0), 0));
-
+    topChildren.reduce((sum, c) => sum + countImgAll(c), 0), 0));
   if (!isTreeCollapsed("act", imgSearchRoot.key))
     topChildren.forEach(c => walk(c, 1));
 
   body.innerHTML = "";
   body.appendChild(frag);
+
+  // 하위 폴더 존재 여부는 화면에 실제 보이는 행만 우선 확인한다.
+  // 전체 트리를 재귀적으로 훑지 않으며, 각 폴더는 첫 번째 하위 디렉터리를
+  // 발견하는 즉시 probeImgHasSubfolders()가 종료한다.
+  if (window.__imgTreeProbeObserver) {
+    try { window.__imgTreeProbeObserver.disconnect(); } catch(e) {}
+  }
+  if (typeof IntersectionObserver === "function") {
+    window.__imgTreeProbeObserver = new IntersectionObserver(entries => {
+      entries.forEach(ent => {
+        if (!ent.isIntersecting) return;
+        const btn = ent.target;
+        const key = btn.dataset.folderKey;
+        const node = key ? findImgNode(imgSearchRoot, key) : null;
+        if (node && !node.isRoot && !node._hasSubfoldersChecked) {
+          probeImgHasSubfolders(node).then(() => {
+            if (imgSearchRoot) renderImageSearchTree();
+          }).catch(()=>{});
+        }
+        try { window.__imgTreeProbeObserver.unobserve(btn); } catch(e) {}
+      });
+    }, {root: body, rootMargin: "160px 0px"});
+    body.querySelectorAll('.tree-item').forEach(btn => {
+      const key = btn.classList.contains('active') ? btn.dataset.folderKey : btn.dataset.folderKey;
+      if (key) window.__imgTreeProbeObserver.observe(btn);
+    });
+  }
+
+}
+
+async function ensureCachedFolderHandle(key) {
+  let node = findImgNode(imgSearchRoot, key);
+  if (!node || node.isRoot || node._handle) return node;
+  if (!imgSearchRoot?._handle) return node;
+
+  // 캐시 경로를 문자열로만 따라가지 않고, 각 실제 디렉터리를
+  // getDirectoryHandle()로 직접 확인합니다. 한글/공백/인코딩 이름도 대응합니다.
+  const parts = String(node.pathEnc || key || "")
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .split("/").filter(Boolean);
+  const decodePart = part => {
+    try { return decodeURIComponent(part); } catch (e) { return part; }
+  };
+
+  try {
+    let handle = imgSearchRoot._handle;
+    let path = "./";
+    let current = imgSearchRoot;
+
+    for (const rawPart of parts) {
+      const part = decodePart(rawPart);
+      handle = await handle.getDirectoryHandle(part, { create: false });
+      path += rawPart + "/";
+
+      // 현재 트리의 해당 노드에 실제 handle을 연결합니다.
+      let next = (current.children || []).find(c => {
+        const cp = String(c.pathEnc || "").replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/$/, "");
+        return cp === path.replace(/^\.\//, "").replace(/\/$/, "") ||
+               String(c.name || "") === part;
+      });
+      if (!next) next = findImgNode(imgSearchRoot, path);
+      if (!next) next = findImgNode(imgSearchRoot, "./" + rawPart + "/");
+      if (!next) return node;
+      next._handle = handle;
+      current = next;
+    }
+
+    node = findImgNode(imgSearchRoot, key) || node;
+    if (node._handle) {
+      node._needsScan = true;
+      node._structureLoaded = false;
+      return node;
+    }
+  } catch (e) {
+    console.warn("cached folder handle resolve failed:", node.pathEnc || key, e);
+  }
+  return node;
+}
+
+function getImgFolderDisplayPath(node) {
+  if (!node) return "";
+  const rootName = imgSearchRoot?.name || window.__imgRootHandle?.name || "";
+  const rel = String(node.pathEnc || "./").replace(/^\.\//, "").replace(/\/$/, "");
+  return rel ? (rootName ? rootName + "\\" + rel.replace(/\//g, "\\") : rel.replace(/\//g, "\\")) : rootName;
+}
+
+function getImgFileRecordKey(rec, index=0) {
+  if (!rec) return "";
+  return String(rec.name || "") + "\u0000" + String(index);
+}
+
+function clearImgFilePreviewUrl() {
+  try {
+    if (window.__imgFilePreviewUrl) URL.revokeObjectURL(window.__imgFilePreviewUrl);
+  } catch (e) {}
+  window.__imgFilePreviewUrl = "";
+}
+
+function renderImgFileList() {
+  const pane = document.getElementById("imgSearchFileListPane");
+  const listEl = document.getElementById("imgSearchFileList");
+  const titleEl = document.getElementById("imgSearchFileListTitle");
+  if (!pane || !listEl) return;
+
+  pane.classList.toggle("visible", !!imgSearchFileView);
+  refreshImgFileListSplitter();
+  if (!imgSearchFileView) return;
+
+  const node = findImgNode(imgSearchRoot, imgSearchSelectedKey);
+  const files = (node && node.files) ? node.files : [];
+  if (titleEl) titleEl.textContent = (node?.name || "선택 폴더") + " · 파일 " + files.length.toLocaleString() + "개";
+  listEl.innerHTML = "";
+
+  if (!node) {
+    listEl.innerHTML = '<div class="img-file-empty">폴더를 선택하세요</div>';
+    return;
+  }
+  if (!files.length) {
+    listEl.innerHTML = '<div class="img-file-empty">이미지 파일이 없습니다.</div>';
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  files.forEach((rec, i) => {
+    let name = rec?.name || "";
+    try { name = decodeURIComponent(name); } catch (e) {}
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "img-file-row" + (imgSearchSelectedFileKey === getImgFileRecordKey(rec, i) ? " active" : "");
+    row.title = name;
+    row.textContent = name;
+    row.addEventListener("click", () => showImgFileInMainWindow(rec, i, node));
+    frag.appendChild(row);
+  });
+  listEl.appendChild(frag);
+}
+
+function bindCtrlWheelZoom(img, minScale=0.25, maxScale=6) {
+  if (!img || img.dataset.ctrlWheelBound === "1") return;
+  img.dataset.ctrlWheelBound = "1";
+  img.addEventListener("wheel", e => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const current = Number(img.dataset.ctrlScale || "1");
+    const factor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
+    const next = Math.max(minScale, Math.min(maxScale, current * factor));
+    img.dataset.ctrlScale = String(next);
+    img.style.transform = "scale(" + next + ")";
+    img.style.transformOrigin = "center center";
+  }, { passive:false });
+}
+
+async function showImgFileInMainWindow(rec, index, node) {
+  if (!rec || !node) return;
+  const key = getImgFileRecordKey(rec, index);
+  imgSearchSelectedFileKey = key;
+  renderImgFileList();
+
+  const gal = document.getElementById("imgSearchGallery");
+  if (!gal) return;
+
+  // 파일보기에서 파일명을 클릭하면 별도 미리보기 1장으로 바꾸지 않고,
+  // 현재 이미지 갤러리에서 동일한 파일의 위치로 이동한다.
+  // 첫 60장 밖의 파일도 필요한 만큼 백그라운드 배치를 로드한 뒤 이동한다.
+  try {
+    if (typeof gal.__focusFileIndex === "function") {
+      await gal.__focusFileIndex(index);
+      return;
+    }
+
+    // 갤러리 렌더가 아직 끝나지 않은 경우에는 한 번 다시 렌더링한다.
+    await renderImageSearchGallery();
+    if (typeof gal.__focusFileIndex === "function") {
+      await gal.__focusFileIndex(index);
+      return;
+    }
+  } catch (e) {
+    console.warn("image gallery focus failed", e);
+  }
+
+  // 최후의 fallback: 현재 DOM에 이미 생성된 동일 파일을 찾아 이동한다.
+  const targetKey = key;
+  const target = Array.from(gal.querySelectorAll(".inline-gallery-item"))
+    .find(it => it.dataset.fileKey === targetKey);
+  target?.scrollIntoView({behavior:"smooth", block:"center", inline:"center"});
 }
 
 async function selectImgSearchFolder(key) {
   // 이전에 선택한 폴더를 먼저 스캔하지 않는다.
   // 이 동작이 클릭 지연/무반응의 가장 큰 원인이었다.
   imgSearchSelectedKey = key;
-  const node = findImgNode(imgSearchRoot, key);
+  let node = findImgNode(imgSearchRoot, key);
+  if (node && !node.isRoot && !node._handle) {
+    node = await ensureCachedFolderHandle(key);
+  }
+  // 캐시에서 복원된 노드는 구조 정보와 실제 handle이 분리되어 있을 수 있습니다.
+  // handle 확보에 실패하면 갤러리가 조용히 빈 화면이 되지 않도록 상태를 명확히 표시합니다.
+  if (node && !node.isRoot && !node._handle) {
+    const st = document.getElementById("imgSearchStatus");
+    if (st) st.textContent = "폴더 접근 실패 · 다시 폴더를 선택하거나 ReScan 해주세요 · " + (node.name || "");
+    renderImgFileList();
+    await renderImageSearchGallery();
+    return;
+  }
+  imgPictureSettings.selectedPath = key || "./";
+
+  const selectedPathLabel = getImgFolderDisplayPath(node);
+  const selectedStatus = document.getElementById("imgSearchStatus");
+  if (selectedStatus && selectedPathLabel) selectedStatus.textContent = "선택 경로: " + selectedPathLabel;
+  const rootLabelEl = document.getElementById("imgSearchRootLabel");
+  if (rootLabelEl && imgSearchRoot) rootLabelEl.textContent = "📁 " + (imgSearchRoot.name || "선택 폴더");
 
   renderImageSearchTree();
-  if (!node) return;
+  if (!node) {
+    renderImgFileList();
+    return;
+  }
 
   // 선택 폴더만 실제로 읽고 갤러리를 표시한다.
   if (!node.isRoot) await ensureFolderImagesLoaded(node);
+  imgSearchSelectedFileKey = "";
+  renderImgFileList();
   await renderImageSearchGallery();
 
-  // 하위 폴더의 개수 계산은 화면 표시를 막지 않고 백그라운드에서 진행한다.
-  refreshImgTreeFileCounts(node).catch(e =>
-    console.warn("selected tree file-count refresh failed:", e)
-  );
-
-  try { saveImgSettingsToFile(); } catch (e) {}
+  // 변경 내용은 메모리에만 반영한다. JSON 저장은 상단 버튼을 눌렀을 때만 수행한다.
+  window.__akSavedFolderPath = node.pathEnc || node.name || key;
 }
 
 async function renderImageSearchGallery() {
@@ -917,31 +1723,37 @@ async function renderImageSearchGallery() {
   gal.classList.remove("list-mode");
   gal.style.removeProperty("--list-item-w");
 
-  const sizeCtrls = document.getElementById("imgSearchSizeRange")?.closest(".inline-size-controls");
-  if (sizeCtrls) sizeCtrls.classList.remove("is-hidden-list");
-
-  if (isRootSelected(imgSearchRoot, imgSearchSelectedKey)) {
-    tabs?.querySelectorAll(".orient-tab .n").forEach(el => el.textContent = "(0)");
-    renderActressFolderList(gal, status, imgSearchRoot, imgSearchFavOnly, key => selectImgSearchFolder(key));
-    return;
-  }
 
   const node = findImgNode(imgSearchRoot, imgSearchSelectedKey);
   if (!node) { if (status) status.textContent = "폴더를 선택하세요"; return; }
 
+  // 선택한 폴더 자체의 이미지도 함께 표시할 수 있도록 직접 파일을 먼저 준비한다.
+  // 상위 폴더라면 하위 폴더 목록을 먼저 보여주고, 직접 포함된 이미지가 있으면
+  // 그 아래에 이미지도 이어서 표시한다. (하위 폴더의 이미지는 중복 표시하지 않는다.)
   if (status) status.textContent = "이미지 목록 준비 중… · " + node.name;
   await ensureFolderImagesLoaded(node);
   renderImageSearchTree();
 
-  // The selected folder only. No recursive File/ObjectURL creation here.
-  const list = (node.files || []).slice();
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+  const directFiles = (node.files || []).slice();
+
+  if (hasChildren) {
+    if (status) status.textContent = "하위 폴더 " + node.children.length.toLocaleString() + "개 · " +
+      (directFiles.length ? "직접 이미지 " + directFiles.length.toLocaleString() + "개 · " : "") + (node.name || "");
+    tabs?.querySelectorAll(".orient-tab .n").forEach(el => el.textContent = "(0)");
+    renderImageFolderList(gal, status, node, imgSearchFavOnly, key => selectImgSearchFolder(key));
+    // 직접 이미지가 하나도 없으면 기존처럼 폴더 목록만 표시한다.
+    if (!directFiles.length) return;
+  }
+
+  // 최하위 폴더는 전체 직접 이미지, 상위 폴더는 그 폴더에 직접 들어 있는 이미지
+  // 만 표시한다. 하위 폴더 이미지와 중복되지 않도록 자식의 파일은 합치지 않는다.
+  const list = directFiles;
 
   const useList = imgSearchViewMode === "list";
   gal.classList.toggle("list-mode", useList);
-  if (useList) gal.style.setProperty("--list-item-w", (imgSearchListScale * 100) + "%");
+  if (useList) gal.style.setProperty("--list-item-w", imgSearchListSize + "px");
 
-  const sizeCtrls2 = document.querySelector(".inline-size-controls");
-  if (sizeCtrls2) sizeCtrls2.classList.toggle("is-hidden-list", useList);
 
   function updateTabs() {
     const items = gal.querySelectorAll(".inline-gallery-item");
@@ -964,7 +1776,7 @@ async function renderImageSearchGallery() {
       const ok = imgSearchOrient === "all" || it.dataset.orient === imgSearchOrient;
       it.dataset.hidden = ok ? "0" : "1";
       if (ok) shown++;
-      if (!useList && ok) it.style.width = imgSearchSize + "px";
+      if (!useList && ok) it.style.width = imgSearchThumbSize + "px";
     });
 
     const label = imgSearchOrient === "landscape" ? "가로" :
@@ -996,35 +1808,41 @@ async function renderImageSearchGallery() {
     const end = Math.min(cursor + BATCH, list.length);
     const slice = list.slice(cursor, end);
 
-    for (let i = 0; i < slice.length; i++) {
-      const rec = slice[i];
+    // getFile()은 독립 작업이므로 첫 배치를 병렬 준비한다.
+    const prepared = await Promise.all(slice.map(async rec => {
       let fileName = rec.name;
       try { fileName = decodeURIComponent(rec.name); } catch (e) {}
-
       let src = rec.src;
+      if (!rec.file && rec.handle) {
+        try { rec.file = await rec.handle.getFile(); } catch (e) { return null; }
+      }
       if (!src && rec.file) {
         try {
           src = URL.createObjectURL(rec.file);
           rec.src = src;
           if (!window.__imgObjectUrls) window.__imgObjectUrls = [];
           window.__imgObjectUrls.push(src);
-        } catch (e) {
-          continue;
-        }
+        } catch (e) { return null; }
       }
-      if (!src) continue;
+      return src ? { rec, fileName, src } : null;
+    }));
+
+    for (let i = 0; i < prepared.length; i++) {
+      const data = prepared[i];
+      if (!data) continue;
+      const { rec, fileName, src } = data;
 
       const item = document.createElement("div");
       item.className = "inline-gallery-item";
       item.dataset.orient = "landscape";
       item.dataset.index = String(cursor + i);
-      if (!useList) item.style.width = imgSearchSize + "px";
+      item.dataset.fileKey = getImgFileRecordKey(rec, cursor + i);
+      if (!useList) item.style.width = (useList ? imgSearchListSize : imgSearchThumbSize) + "px";
 
       const img = document.createElement("img");
       img.src = src;
       img.alt = fileName;
-      img.title = fileName;
-      img.loading = "lazy";
+          img.loading = "lazy";
       img.decoding = "async";
 
       if (!useList) {
@@ -1035,6 +1853,37 @@ async function renderImageSearchGallery() {
       const lbIndex = lightboxSrc.length;
       lightboxSrc.push(src);
       img.addEventListener("click", () => getGlobalLightbox().open(lightboxSrc, lbIndex));
+
+      // Ctrl + mouse drag: drag upward to zoom in, downward to zoom out.
+      // This is intentionally local to the thumbnail image and does not change
+      // the persisted thumbnail-size setting.
+      let ctrlDrag = null;
+      img.addEventListener("mousedown", e => {
+        if (!e.ctrlKey || e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const current = Number(img.dataset.ctrlScale || "1");
+        ctrlDrag = { y:e.clientY, scale:current };
+        img.classList.add("ak-ctrl-zooming");
+        const move = ev => {
+          if (!ctrlDrag) return;
+          const delta = ctrlDrag.y - ev.clientY;
+          const scale = Math.max(0.25, Math.min(6, ctrlDrag.scale * Math.pow(1.006, delta)));
+          img.dataset.ctrlScale = String(scale);
+          img.style.transform = "scale(" + scale + ")";
+          img.style.transformOrigin = "center center";
+        };
+        const up = () => {
+          ctrlDrag = null;
+          img.classList.remove("ak-ctrl-zooming");
+          window.removeEventListener("mousemove", move);
+          window.removeEventListener("mouseup", up);
+        };
+        window.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", up);
+      });
+
+      bindCtrlWheelZoom(img);
 
       img.addEventListener("error", () => {
         item.dataset.removed = "1";
@@ -1076,6 +1925,71 @@ async function renderImageSearchGallery() {
     if (cursor >= list.length && status) {
       status.textContent += " · 전체 로드 완료";
     }
+  };
+
+  // 파일 목록에서 클릭한 파일의 갤러리 위치로 이동할 수 있도록 공개한다.
+  // 필요한 경우 60장 단위로 추가 로드하여 대상 index까지 DOM을 만든다.
+  gal.__focusFileIndex = async targetIndex => {
+    const n = Math.max(0, Number(targetIndex) || 0);
+    let guard = 0;
+    while (cursor <= n && cursor < list.length && guard++ < 1000) {
+      await appendBatch();
+    }
+    const targetKey = getImgFileRecordKey(list[n], n);
+    const target = Array.from(gal.querySelectorAll(".inline-gallery-item"))
+      .find(it => it.dataset.fileKey === targetKey);
+    if (target) {
+      // 현재 가로/세로 필터에서 숨겨진 경우에도 클릭한 파일이 보이도록 전체로 전환한다.
+      if (target.dataset.hidden === "1") {
+        imgSearchOrient = "all";
+        document.querySelectorAll("#imgSearchOrientTabs .orient-tab").forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.orient === "all");
+        });
+        gal.querySelectorAll(".inline-gallery-item").forEach(it => {
+          if (it.dataset.removed !== "1") it.dataset.hidden = "0";
+        });
+      }
+
+      // 이미지가 아직 로드되지 않은 상태에서는 flex-wrap 레이아웃의 높이가
+      // 확정되지 않아 scrollIntoView()가 엉뚱한 위치로 이동할 수 있습니다.
+      // 대상 이미지의 로드/디코딩과 레이아웃 2프레임을 기다린 뒤,
+      // 갤러리 자체의 scrollTop을 직접 계산하여 정확히 가운데로 이동합니다.
+      const targetImg = target.querySelector("img");
+      if (targetImg && !targetImg.complete) {
+        await new Promise(resolve => {
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            targetImg.removeEventListener("load", finish);
+            targetImg.removeEventListener("error", finish);
+            resolve();
+          };
+          targetImg.addEventListener("load", finish, {once:true});
+          targetImg.addEventListener("error", finish, {once:true});
+          setTimeout(finish, 1200);
+        });
+      }
+      if (targetImg && targetImg.decode) {
+        try { await targetImg.decode(); } catch (e) {}
+      }
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      const scrollToTarget = () => {
+        const gr = gal.getBoundingClientRect();
+        const tr = target.getBoundingClientRect();
+        const nextTop = gal.scrollTop + (tr.top - gr.top) - (gr.height - tr.height) / 2;
+        gal.scrollTo({ top: Math.max(0, nextTop), behavior:"smooth" });
+      };
+      scrollToTarget();
+      // 이미지의 실제 높이가 늦게 확정되는 경우를 대비해 한 번 더 보정합니다.
+      setTimeout(scrollToTarget, 180);
+
+      target.classList.add("file-focus-highlight");
+      setTimeout(() => target.classList.remove("file-focus-highlight"), 1100);
+      return true;
+    }
+    return false;
   };
 
   await appendBatch();
@@ -1139,11 +2053,158 @@ function restoreImgSavedFolderSelection() {
   return false;
 }
 
+function akSetScanProgress(title, detail, pct, hide=false) {
+  const box=document.getElementById("akScanProgress"); if(!box) return;
+  if(hide){ box.style.display="none"; return; }
+  box.style.display="block";
+  const t=document.getElementById("akScanProgressTitle"), d=document.getElementById("akScanProgressDetail"), f=document.getElementById("akScanProgressFill");
+  if(t) t.textContent=title||"폴더 구조 읽는 중…"; if(d) d.textContent=detail||""; if(f) f.style.width=Math.max(0,Math.min(100,Number(pct)||0))+"%";
+}
+
+function buildCachedRootFromHandle(dirHandle, displayName) {
+  const rootName = displayName || dirHandle?.name || "선택 폴더";
+  const root = {
+    key: "__selected_root__", name: rootName, label: rootName, pathEnc: "./",
+    files: [], _fileHandles: [], children: [], isRoot: true,
+    _filesLoaded: false, _structureLoaded: true, _handle: dirHandle,
+    _cachedRoot: true, _needsScan: false
+  };
+  const cacheKey = getFolderCacheKey(rootName);
+  const cached = FOLDER_CACHE && FOLDER_CACHE[cacheKey];
+  if (cached) applyCachedNodeInfo(root, cached.node || cached, true);
+  // Cached children are placeholders. Attach the real root handle only; child
+  // handles are resolved lazily with getDirectoryHandle() when the user opens one.
+  root._cacheAvailable = !!cached;
+  return root;
+}
+
+async function loadRootFromCacheFirst(dirHandle, displayName) {
+  imgSearchRoot = buildCachedRootFromHandle(dirHandle, displayName);
+  imgSearchSelectedKey = imgSearchRoot.key;
+  imgSearchLoaded = true;
+  restoreImgSavedFolderSelection();
+  const label = document.getElementById("imgSearchRootLabel");
+  if (label) label.textContent = "📁 " + imgSearchRoot.name;
+  renderImageSearchTree();
+  renderImgFileList();
+  const status = document.getElementById("imgSearchStatus");
+  const cache = imgSearchRoot._cacheAvailable;
+  if (status) status.textContent = cache
+    ? "캐시 사용 · 폴더 구조와 파일 건수를 즉시 표시 · 필요 시 ReScan"
+    : "캐시 정보 없음 · ReScan으로 폴더 정보를 생성하세요";
+  akSetScanProgress(cache ? "캐시 로드 완료" : "캐시 정보 없음", cache ? "폴더를 실제로 읽지 않고 act_folder_cache.json을 사용했습니다." : "ReScan을 누르면 폴더 구조와 파일 건수를 새로 조사합니다.", 100);
+  setTimeout(() => akSetScanProgress("", "", 0, true), 1200);
+  await renderImageSearchGallery();
+  return cache;
+}
+
+async function rescanImageSearchRoot() {
+  const handle = window.__imgRootHandle;
+  if (!handle) { showToast("먼저 '폴더 선택'으로 기준 폴더를 선택하세요."); return; }
+
+  // ReScan은 전체 폴더를 다시 조사하므로 실행 전에 사용자 확인을 받습니다.
+  const ok = window.confirm(
+    "ReScan을 실행하시겠습니까?\n\n선택한 폴더의 모든 하위 폴더와 이미지 파일을 다시 조사합니다.\n폴더 수와 이미지 수에 따라 시간이 걸릴 수 있습니다."
+  );
+  if (!ok) return;
+
+  const btn = document.getElementById("btnImgSearchRescan");
+  if (btn) { btn.disabled = true; btn.textContent = "Rescan…"; }
+  const started = performance.now();
+  const status = document.getElementById("imgSearchStatus");
+  const body = document.getElementById("imgSearchTreeBody");
+  const IMAGE_RE = /\.(?:jpg|jpeg|png|webp|gif|bmp)$/i;
+  let entriesSeen = 0, dirsDone = 0, imageCount = 0;
+
+  const scanDir = async (dirHandle, pathEnc, depth, isRoot=false) => {
+    const node = {
+      key: isRoot ? "__selected_root__" : pathEnc,
+      name: dirHandle.name, label: dirHandle.name, pathEnc,
+      files: [], _fileHandles: [], children: [], isRoot,
+      _filesLoaded: false, _structureLoaded: true, _handle: dirHandle,
+      _scanDepth: depth, _needsScan: false, _hasSubfolders: false,
+      _hasSubfoldersChecked: true
+    };
+    const dirs = [], files = [];
+    for await (const [name, entry] of dirHandle.entries()) {
+      entriesSeen++;
+      if (entry.kind === "directory") dirs.push([name, entry]);
+      else if (IMAGE_RE.test(name)) files.push({name, handle: entry});
+      if (entriesSeen % 300 === 0) {
+        const sec = ((performance.now()-started)/1000).toFixed(1);
+        if (status) status.textContent = "ReScan 중… " + dirsDone.toLocaleString() + "개 폴더 · " + imageCount.toLocaleString() + "개 이미지 · " + sec + "초";
+        akSetScanProgress("ReScan · 폴더 정보와 파일 건수 확인", entriesSeen.toLocaleString() + "개 항목 확인 · 경과 " + sec + "초", 0);
+        await new Promise(r => requestAnimationFrame(r));
+      }
+    }
+    dirs.sort((a,b)=>a[0].localeCompare(b[0],"ja"));
+    files.sort((a,b)=>a.name.localeCompare(b.name,"ja"));
+    node._fileHandles = files;
+    // 직접 파일 수와 하위 폴더 총 건수를 분리해서 저장합니다.
+    // snapshotImgCacheNode()가 상위 폴더를
+    // directCount + 모든 자식 count로 정확히 계산할 수 있도록 합니다.
+    node._directImgCount = files.length;
+    node._directCountConfirmed = true;
+    node.imgCount = files.length;
+    node._countConfirmed = true;
+    node._hasSubfolders = dirs.length > 0;
+    node._hasSubfoldersChecked = true;
+    imageCount += files.length;
+    dirsDone++;
+    for (const [name, childHandle] of dirs) {
+      const childPath = pathEnc + name + "/";
+      const child = await scanDir(childHandle, childPath, depth+1, false);
+      node.children.push(child);
+    }
+    return node;
+  };
+
+  try {
+    if (status) status.textContent = "ReScan 시작… 폴더 구조와 파일 건수를 조사합니다.";
+    if (body) body.innerHTML = '<div class="tree-empty">ReScan 중…</div>';
+    akSetScanProgress("ReScan · 전체 폴더 조사 시작", "폴더별 이미지 파일 건수를 확인합니다.", 0);
+    const root = await scanDir(handle, "./", 0, true);
+    root.name = handle.name; root.label = handle.name;
+    root.key = "__selected_root__"; root.pathEnc = "./";
+    imgSearchRoot = root;
+    imgSearchSelectedKey = root.key;
+    imgSearchLoaded = true;
+    applyFavoriteStateFromSettings(root);
+    const cacheKey = getFolderCacheKey(root.name);
+    if (!FOLDER_CACHE) FOLDER_CACHE = {};
+    const now = new Date().toISOString();
+    FOLDER_CACHE[cacheKey] = { updated: now, rootLabel: root.name, rootPathEnc: "./", node: snapshotImgCacheNode(root) };
+    saveFolderCacheLocal();
+    renderImageSearchTree();
+    renderImgFileList();
+    await renderImageSearchGallery();
+    const sec = ((performance.now()-started)/1000).toFixed(1);
+    if (status) status.textContent = "ReScan 완료 · " + dirsDone.toLocaleString() + "개 폴더 · 이미지 " + imageCount.toLocaleString() + "장 · " + sec + "초";
+    akSetScanProgress("ReScan 완료", "폴더 구조와 파일 건수를 act_folder_cache.json에 반영했습니다 · " + sec + "초", 100);
+    // Browser security does not allow overwriting an arbitrary file beside the HTML.
+    // Download the updated cache automatically so the user can replace the existing file.
+    downloadJsonFile(FOLDER_CACHE_FILE, {
+      version: 4, rootFolderName: root.name, selectedPath: imgPictureSettings.selectedPath || "./",
+      updatedAt: now, cache: FOLDER_CACHE
+    });
+    showToast("ReScan 완료 · 업데이트된 act_folder_cache.json을 다운로드했습니다");
+    setTimeout(() => akSetScanProgress("", "", 0, true), 1800);
+  } catch (e) {
+    console.error(e);
+    if (status) status.textContent = "ReScan 실패: " + (e.message || e);
+    akSetScanProgress("ReScan 실패", e.message || String(e), 0);
+    showToast("ReScan 실패: " + (e.message || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "ReScan"; }
+  }
+}
+
 async function scanSelectedDirectory(dirHandle, displayName) {
   const status = document.getElementById("imgSearchStatus");
   const body = document.getElementById("imgSearchTreeBody");
   if (body) body.innerHTML = '<div class="tree-empty">선택한 폴더 구조 준비 중…</div>';
-  if (status) status.textContent = "빠른 폴더 스캔 중…";
+  if (status) status.textContent = "빠른 폴더 구조 스캔 중…";
+  akSetScanProgress("폴더 구조 읽는 중…", "파일 내용은 아직 읽지 않습니다.", 5);
 
   const IMAGE_RE = /\.(?:jpg|jpeg|png|webp|gif|bmp)$/i;
   const YIELD_EVERY = 250;
@@ -1164,58 +2225,49 @@ async function scanSelectedDirectory(dirHandle, displayName) {
     };
 
     let seen = 0;
-    const entries = [];
+    const dirs = [];
+    const rootFileHandles = [];
 
     for await (const [name, entry] of handle.entries()) {
-      entries.push([name, entry]);
+      if (entry.kind === "directory") dirs.push([name, entry]);
+      else if (IMAGE_RE.test(name)) rootFileHandles.push({ name, handle: entry });
       seen++;
       if (seen % YIELD_EVERY === 0) {
-        if (status) status.textContent =
-          "빠른 폴더 스캔 중… " + seen.toLocaleString() + "개 항목";
+        if (status) status.textContent = "폴더 구조 스캔 중… " + seen.toLocaleString() + "개 항목";
+        akSetScanProgress("폴더 구조 읽는 중…", seen.toLocaleString() + "개 항목 확인 · 이미지 파일은 아직 열지 않음", Math.min(92, 5 + seen % 87));
         await new Promise(r => requestAnimationFrame(r));
       }
     }
+    dirs.sort((a, b) => a[0].localeCompare(b[0], "ja"));
+    rootFileHandles.sort((a, b) => a.name.localeCompare(b.name, "ja"));
 
-    entries.sort((a, b) => {
-      const ad = a[1].kind === "directory", bd = b[1].kind === "directory";
-      if (ad !== bd) return ad ? -1 : 1;
-      return a[0].localeCompare(b[0], "ja");
-    });
-
-    for (const [name, entry] of entries) {
-      if (entry.kind === "directory") {
-        const childPath = parentPath ? parentPath + name + "/" : "./" + name + "/";
-
-        // Root + one level is prepared immediately; deeper levels are deferred.
-        if (scanDescendants && depth < 1) {
-          const child = await enumerateDirectory(entry, depth + 1, childPath, false);
-          node.children.push(child);
-        } else {
-          node.children.push({
-            key: childPath,
-            name,
-            label: name,
-            pathEnc: childPath,
-            files: [],
-            _fileHandles: [],
-            children: [],
-            isRoot: false,
-            _filesLoaded: false,
-            _structureLoaded: false,
-            _needsScan: true,
-            _handle: entry,
-            _scanDepth: depth + 1
-          });
-        }
-      } else if (IMAGE_RE.test(name)) {
-        // CRITICAL: do not call getFile() here.
-        // Keeping the FileSystemFileHandle is dramatically cheaper for 10k+ images.
-        node._fileHandles.push({ name, handle: entry });
-      }
+    for (const [name, entry] of dirs) {
+      const childPath = parentPath ? parentPath + name + "/" : "./" + name + "/";
+      // Root directory only: create lightweight child handles; do not inspect them.
+      node.children.push({
+        key: childPath,
+        name,
+        label: name,
+        pathEnc: childPath,
+        files: [],
+        _fileHandles: [],
+        children: [],
+        isRoot: false,
+        _filesLoaded: false,
+        _structureLoaded: false,
+        _needsScan: true,
+        _hasSubfolders: false,
+        _hasSubfoldersChecked: false,
+        _handle: entry,
+        _scanDepth: depth + 1
+      });
     }
 
-    // Known image count is exact for this directory only.
+    node._fileHandles = rootFileHandles;
     node.imgCount = node._fileHandles.length;
+    node._countConfirmed = true;
+    node._hasSubfolders = node.children.length > 0;
+    node._hasSubfoldersChecked = true;
     return node;
   }
 
@@ -1235,9 +2287,9 @@ async function scanSelectedDirectory(dirHandle, displayName) {
     }
     await releaseObjectUrls();
 
-    // Only enumerate the selected root and its immediate child folders.
-    // File bytes and Object URLs are not opened during this phase.
-    imgSearchRoot = await enumerateDirectory(dirHandle, 0, "./", true);
+    // Only enumerate the selected root directory.
+    // Subfolder contents and image File objects are NOT opened here.
+    imgSearchRoot = await enumerateDirectory(dirHandle, 0, "./", false);
     imgSearchRoot.name = displayName || dirHandle.name;
     imgSearchRoot.label = displayName || dirHandle.name;
     imgSearchRoot.key = "__selected_root__";
@@ -1245,20 +2297,28 @@ async function scanSelectedDirectory(dirHandle, displayName) {
     imgSearchRoot._handle = dirHandle;
     imgSearchRoot._structureLoaded = true;
     imgSearchRoot._filesLoaded = false;
+    const rootLabelEl = document.getElementById("imgSearchRootLabel");
+    if (rootLabelEl) rootLabelEl.textContent = "📁 " + imgSearchRoot.name;
+    const rootStatusEl = document.getElementById("imgSearchStatus");
+    if (rootStatusEl) rootStatusEl.textContent = "선택 경로: " + imgSearchRoot.name;
+
+    // Use the saved structure cache immediately. The selected root was already
+    // enumerated once above, so attach its current direct child handles to cached rows.
+    const directHandles = new Map((imgSearchRoot.children || []).map(c => [c.pathEnc, c._handle]).filter(x => x[1]));
+    applyFolderCacheToRoot(imgSearchRoot);
+    applyFavoriteStateFromSettings(imgSearchRoot);
+    for (const child of (imgSearchRoot.children || [])) {
+      if (directHandles.has(child.pathEnc)) child._handle = directHandles.get(child.pathEnc);
+    }
 
     imgSearchSelectedKey = imgSearchRoot.key;
     restoreImgSavedFolderSelection();
     imgSearchLoaded = true;
 
     renderImageSearchTree();
+    akSetScanProgress("폴더 읽기 완료", "하위 폴더는 클릭할 때 읽습니다.", 100);
+    setTimeout(() => akSetScanProgress("", "", 0, true), 900);
     await renderImageSearchGallery();
-
-    // 폴더 선택 직후 전체 하위 폴더의 이미지 파일 개수를 백그라운드에서 계산한다.
-    // 실제 이미지 데이터는 읽지 않으므로 빠른 초기 표시 방식은 유지된다.
-    // 전체 트리 스캔은 클릭을 막지 않도록 별도 백그라운드 작업으로 시작한다.
-    setTimeout(() => refreshImgTreeFileCounts(imgSearchRoot).catch(e =>
-      console.warn("tree file-count refresh failed:", e)
-    ), 0);
 
     const directFiles = imgSearchRoot.imgCount || 0;
     const folders = (imgSearchRoot.children || []).length;
@@ -1283,10 +2343,8 @@ async function selectImageRootFolder() {
     try {
       const handle = await window.showDirectoryPicker({ mode: "readwrite" });
       window.__imgRootHandle = handle;
-      await readImgPictureSettings(handle);
-      applyImgTreeWidth(imgPictureSettings.treeWidth, false);
-      applyImgViewMode(imgPictureSettings.viewMode, false);
-      await scanSelectedDirectory(handle, handle.name);
+      applyImgSettingsAfterRootSelection();
+      await loadRootFromCacheFirst(handle, handle.name);
       return;
     } catch (e) {
       if (e && e.name === "AbortError") return;
@@ -1305,7 +2363,7 @@ async function selectImageRootFolder() {
 async function scanImageSearchRoot() {
   // 더 이상 ./act를 자동으로 사용하지 않는다.
   if (window.__imgRootHandle) {
-    await scanSelectedDirectory(window.__imgRootHandle, window.__imgRootHandle.name);
+    await loadRootFromCacheFirst(window.__imgRootHandle, window.__imgRootHandle.name);
   } else {
     imgSearchRoot = null;
     imgSearchSelectedKey = "";
@@ -1314,19 +2372,52 @@ async function scanImageSearchRoot() {
   }
 }
 const IMG_SETTINGS_FILE = "ak_picture_settings.json";
+const IMG_SETTINGS_VERSION = 1.23;
 const IMG_TREE_WIDTH_KEY = "ak_picture_img_tree_width_v2";
 const IMG_VIEW_MODE_KEY = "ak_picture_img_view_mode_v2";
-let imgPictureSettings = { treeWidth: 300, viewMode: "thumb" };
+let imgPictureSettings = { treeWidth: 300, fileListWidth: 45, viewMode: "thumb", favoriteFolders: {} };
 let imgPictureSettingsWritable = false;
+let imgSearchFolderFilter = "";
+
+function matchesImgFolderFilter(node, q) {
+  if (!q) return true;
+  const name = String(node?.name || node?.label || "").toLocaleLowerCase();
+  return name.includes(q);
+}
+function imgFolderHasMatch(node, q) {
+  if (!q) return true;
+  return matchesImgFolderFilter(node, q) || (node?.children || []).some(c => imgFolderHasMatch(c, q));
+}
+function initImgFolderSearch() {
+  const input = document.getElementById("imgSearchFolderFilter");
+  const clear = document.getElementById("btnImgSearchFolderFilterClear");
+  if (!input || input.dataset.bound) return;
+  input.dataset.bound = "1";
+  input.addEventListener("input", () => {
+    imgSearchFolderFilter = String(input.value || "").trim().toLocaleLowerCase();
+    renderImageSearchTree();
+  });
+  clear?.addEventListener("click", () => {
+    input.value = "";
+    imgSearchFolderFilter = "";
+    renderImageSearchTree();
+    input.focus();
+  });
+}
+
 
 function applyImgTreeWidth(px, saveLocal=true) {
   const layout = document.querySelector(".image-search-layout");
   if (!layout) return;
-  const max = Math.max(150, Math.floor(layout.clientWidth * 0.55));
-  const width = Math.max(150, Math.min(max, Math.round(Number(px) || 300)));
+
+  // JSON의 treeWidth를 화면 폭에 맞춰 임의로 줄이지 않는다.
+  // 예: ak_picture_settings.json에 582가 있으면 첫 실행부터 정확히 582px 적용.
+  const n = Number(px);
+  const width = Number.isFinite(n) ? Math.max(150, Math.round(n)) : 300;
+
   layout.style.setProperty("--img-tree-width", width + "px");
   imgPictureSettings.treeWidth = width;
-  if (saveLocal) { try { localStorage.setItem(IMG_TREE_WIDTH_KEY, String(width)); } catch(e) {} }
+  // 변경값은 메모리에만 유지하고, 명시적 JSON 저장 때만 파일에 반영합니다.
 }
 
 function applyImgViewMode(mode, saveLocal=true) {
@@ -1334,48 +2425,149 @@ function applyImgViewMode(mode, saveLocal=true) {
   const combo = document.getElementById("imgSearchViewMode");
   combo?.querySelectorAll("button[data-mode]").forEach(b => b.classList.toggle("active", b.dataset.mode === imgSearchViewMode));
   imgPictureSettings.viewMode = imgSearchViewMode;
-  if (saveLocal) { try { localStorage.setItem(IMG_VIEW_MODE_KEY, imgSearchViewMode); } catch(e) {} }
+  // 썸네일/List는 서로 독립된 크기값을 사용합니다.
+  imgSearchSize = imgSearchViewMode === "list" ? imgSearchListSize : imgSearchThumbSize;
+  const thumbRange = document.getElementById("imgSearchThumbSizeRange");
+  const listRange = document.getElementById("imgSearchListSizeRange");
+  const thumbVal = document.getElementById("imgSearchThumbSizeVal");
+  const listVal = document.getElementById("imgSearchListSizeVal");
+  if (thumbRange) thumbRange.value = imgSearchThumbSize;
+  if (listRange) listRange.value = imgSearchListSize;
+  document.querySelector(".size-thumb-controls")?.classList.toggle("is-hidden", imgSearchViewMode !== "thumb");
+  document.querySelector(".size-list-controls")?.classList.toggle("is-hidden", imgSearchViewMode !== "list");
+  if (thumbVal) thumbVal.textContent = imgSearchThumbSize + "px";
+  if (listVal) listVal.textContent = imgSearchListSize + "px";
 }
 
-async function readImgPictureSettings(handle) {
-  const fallback = {
-    treeWidth: (() => { try { return parseInt(localStorage.getItem(IMG_TREE_WIDTH_KEY) || "300", 10) || 300; } catch(e) { return 300; } })(),
-    viewMode: (() => { try { const v=localStorage.getItem(IMG_VIEW_MODE_KEY) || localStorage.getItem("ak_img_search_view_mode") || "thumb"; return v === "list" ? "list" : "thumb"; } catch(e) { return "thumb"; } })()
-  };
-  imgPictureSettings = fallback;
+function openImgStateDB() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) return reject(new Error("IndexedDB unavailable"));
+    const req = indexedDB.open("ak_picture_state_v1", 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("kv")) db.createObjectStore("kv");
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("IndexedDB open failed"));
+  });
+}
+
+async function saveImgRootHandle(handle) {
+  if (!handle) return false;
+  try {
+    const db = await openImgStateDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("kv", "readwrite");
+      tx.objectStore("kv").put(handle, "rootHandle");
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+    return true;
+  } catch (e) {
+    console.warn("root handle save failed", e);
+    return false;
+  }
+}
+
+async function loadImgRootHandle() {
+  try {
+    const db = await openImgStateDB();
+    const handle = await new Promise((resolve, reject) => {
+      const tx = db.transaction("kv", "readonly");
+      const req = tx.objectStore("kv").get("rootHandle");
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+    db.close();
+    return handle;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function restoreSavedImgRoot() {
+  const handle = await loadImgRootHandle();
+  if (!handle) return false;
+  try {
+    let permission = "granted";
+    if (handle.queryPermission) permission = await handle.queryPermission({mode:"read"});
+    if (permission !== "granted") return false;
+    window.__imgRootHandle = handle;
+    await loadRootFromCacheFirst(handle, handle.name);
+    return true;
+  } catch (e) {
+    console.warn("saved root restore failed", e);
+    return false;
+  }
+}
+
+async function readImgPictureSettings() {
+  const fallback = { treeWidth: 300, fileListWidth: 45, viewMode: "thumb", thumbSize: 160, listSize: 160, selectedPath: "./", rootFolderName: "", favoriteFolders: {} };
+  imgPictureSettings = { ...fallback };
   imgPictureSettingsWritable = false;
-  if (!handle?.getFileHandle) return;
+
+  // IMPORTANT: settings are loaded when the HTML screen opens, not when an image folder is selected.
+  // The browser cannot directly read its Downloads folder. Therefore first try a JSON file placed
+  // next to the HTML (works when the page is served by a local web server), then use the browser
+  // localStorage copy created at the last explicit JSON save as a same-browser fallback.
+  let loaded = false;
   try {
-    const fh = await handle.getFileHandle(IMG_SETTINGS_FILE, { create:false });
-    const f = await fh.getFile();
-    const data = JSON.parse(await f.text());
-    if (Number.isFinite(Number(data.treeWidth))) imgPictureSettings.treeWidth = Number(data.treeWidth);
-    if (data.viewMode === "list" || data.viewMode === "thumb") imgPictureSettings.viewMode = data.viewMode;
-  } catch(e) {
-    // 설정 파일이 없으면 로컬 설정을 사용한다.
-  }
-  try {
-    if (handle.queryPermission && handle.requestPermission) {
-      let perm = await handle.queryPermission({mode:"readwrite"});
-      if (perm !== "granted") perm = await handle.requestPermission({mode:"readwrite"});
-      imgPictureSettingsWritable = perm === "granted";
-    } else {
-      imgPictureSettingsWritable = false;
+    const res = await fetch(IMG_SETTINGS_FILE + "?t=" + Date.now(), { cache: "no-store" });
+    if (res.ok) {
+      const d = await res.json();
+      if (Number.isFinite(Number(d.treeWidth))) imgPictureSettings.treeWidth = Math.max(150, Number(d.treeWidth));
+      if (Number.isFinite(Number(d.fileListWidth))) imgPictureSettings.fileListWidth = Math.max(20, Math.min(80, Number(d.fileListWidth)));
+      if (d.viewMode === "list" || d.viewMode === "thumb") imgPictureSettings.viewMode = d.viewMode;
+      if (Number.isFinite(Number(d.thumbSize))) imgPictureSettings.thumbSize = Math.max(80, Math.min(1000, Number(d.thumbSize)));
+      if (Number.isFinite(Number(d.listSize))) imgPictureSettings.listSize = Math.max(80, Math.min(2000, Number(d.listSize)));
+      if (typeof d.selectedPath === "string") imgPictureSettings.selectedPath = d.selectedPath;
+      if (typeof d.rootFolderName === "string") imgPictureSettings.rootFolderName = d.rootFolderName;
+      if (d.favoriteFolders && typeof d.favoriteFolders === "object") imgPictureSettings.favoriteFolders = d.favoriteFolders;
+      if (d.treeCollapsed && typeof d.treeCollapsed === "object") window.__imgTreeCollapsed = d.treeCollapsed;
+      loaded = true;
     }
-  } catch(e) { imgPictureSettingsWritable = false; }
+  } catch (e) {}
+
+  if (!loaded) {
+    try {
+      const raw = localStorage.getItem("ak_picture_settings_v1");
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (Number.isFinite(Number(d.treeWidth))) imgPictureSettings.treeWidth = Math.max(150, Number(d.treeWidth));
+        if (Number.isFinite(Number(d.fileListWidth))) imgPictureSettings.fileListWidth = Math.max(20, Math.min(80, Number(d.fileListWidth)));
+        if (d.viewMode === "list" || d.viewMode === "thumb") imgPictureSettings.viewMode = d.viewMode;
+      if (Number.isFinite(Number(d.thumbSize))) imgPictureSettings.thumbSize = Math.max(80, Math.min(1000, Number(d.thumbSize)));
+      if (Number.isFinite(Number(d.listSize))) imgPictureSettings.listSize = Math.max(80, Math.min(2000, Number(d.listSize)));
+        if (typeof d.selectedPath === "string") imgPictureSettings.selectedPath = d.selectedPath;
+        if (typeof d.rootFolderName === "string") imgPictureSettings.rootFolderName = d.rootFolderName;
+        if (d.treeCollapsed && typeof d.treeCollapsed === "object") window.__imgTreeCollapsed = d.treeCollapsed;
+      }
+    } catch (e) {}
+  }
+  window.__akSavedFolderPath = imgPictureSettings.selectedPath || "./";
+  return imgPictureSettings;
+}
+function writeImgPictureSettings(options = {}) {
+  // 변경사항은 여기서 물리 파일에 쓰지 않고 메모리 상태(imgPictureSettings)에만 반영한다.
+  // 실제 JSON 파일 저장은 상단의 "⬇ JSON 저장" 버튼에서 일괄 처리한다.
+  imgPictureSettings = {
+    ...imgPictureSettings,
+    treeWidth: Math.round(Number(imgPictureSettings.treeWidth) || 300),
+    fileListWidth: Math.max(20, Math.min(80, Number(imgPictureSettings.fileListWidth) || 45)),
+    viewMode: imgPictureSettings.viewMode === "list" ? "list" : "thumb",
+    thumbSize: Math.max(80, Math.min(1000, Math.round(Number(imgPictureSettings.thumbSize) || 160))),
+    listSize: Math.max(80, Math.min(2000, Math.round(Number(imgPictureSettings.listSize) || 160))),
+    selectedPath: imgPictureSettings.selectedPath || "./",
+    rootFolderName: imgSearchRoot?.name || window.__imgRootHandle?.name || imgPictureSettings.rootFolderName || ""
+  };
+  return imgPictureSettings;
 }
 
-async function writeImgPictureSettings() {
-  const handle = window.__imgRootHandle;
-  if (!handle?.getFileHandle || !imgPictureSettingsWritable) return;
-  try {
-    const fh = await handle.getFileHandle(IMG_SETTINGS_FILE, {create:true});
-    const w = await fh.createWritable();
-    await w.write(JSON.stringify({version:1, treeWidth:imgPictureSettings.treeWidth, viewMode:imgPictureSettings.viewMode}, null, 2));
-    await w.close();
-  } catch(e) {
-    imgPictureSettingsWritable = false;
-  }
+function applyImgSettingsAfterRootSelection() {
+  applyImgTreeWidth(imgPictureSettings.treeWidth, false);
+  applyImgFileListWidth(imgPictureSettings.fileListWidth, false);
+  applyImgViewMode(imgPictureSettings.viewMode, false);
 }
 
 function initImgSearchSplitter() {
@@ -1386,11 +2578,10 @@ function initImgSearchSplitter() {
   applyImgTreeWidth(imgPictureSettings.treeWidth, false);
   let dragging=false, startX=0, startWidth=300;
   const move = e => { if (!dragging) return; applyImgTreeWidth(startWidth + e.clientX-startX); };
-  const up = () => {
+  const up = async () => {
     if (!dragging) return;
     dragging=false; splitter.classList.remove("dragging"); document.body.style.cursor=""; document.body.style.userSelect="";
     window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
-    writeImgPictureSettings();
   };
   splitter.addEventListener("pointerdown", e => {
     e.preventDefault(); dragging=true; startX=e.clientX; startWidth=tree.getBoundingClientRect().width;
@@ -1400,14 +2591,75 @@ function initImgSearchSplitter() {
   window.addEventListener("resize", () => applyImgTreeWidth(imgPictureSettings.treeWidth, false));
 }
 
+function applyImgFileListWidth(percent, saveLocal=true) {
+  const content = document.querySelector(".img-tree-content");
+  const treePane = content?.querySelector(".img-tree-pane");
+  const pane = document.getElementById("imgSearchFileListPane");
+  if (!content || !treePane || !pane) return;
+  const n = Number(percent);
+  const width = Number.isFinite(n) ? Math.max(20, Math.min(80, n)) : 45;
+  pane.style.flexBasis = width + "%";
+  imgPictureSettings.fileListWidth = width;
+}
+
+function initImgFileListSplitter() {
+  const content = document.querySelector(".img-tree-content");
+  const splitter = document.getElementById("imgSearchFileListSplitter");
+  const pane = document.getElementById("imgSearchFileListPane");
+  const treePane = content?.querySelector(".img-tree-pane");
+  if (!content || !splitter || !pane || !treePane) return;
+
+  applyImgFileListWidth(imgPictureSettings.fileListWidth, false);
+  let dragging = false, startX = 0, startPaneWidth = 0, totalWidth = 0;
+  const move = e => {
+    if (!dragging) return;
+    const delta = e.clientX - startX;
+    const nextPx = Math.max(90, startPaneWidth - delta);
+    const pct = Math.max(20, Math.min(80, (nextPx / totalWidth) * 100));
+    applyImgFileListWidth(pct, false);
+  };
+  const up = () => {
+    if (!dragging) return;
+    dragging = false;
+    splitter.classList.remove("dragging");
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+  };
+  splitter.addEventListener("pointerdown", e => {
+    if (!imgSearchFileView) return;
+    e.preventDefault();
+    dragging = true;
+    startX = e.clientX;
+    startPaneWidth = pane.getBoundingClientRect().width;
+    totalWidth = content.getBoundingClientRect().width;
+    splitter.classList.add("dragging");
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
+}
+
+function refreshImgFileListSplitter() {
+  const splitter = document.getElementById("imgSearchFileListSplitter");
+  if (!splitter) return;
+  splitter.classList.toggle("visible", !!imgSearchFileView);
+  applyImgFileListWidth(imgPictureSettings.fileListWidth, false);
+}
+
 function initImageSearchUI() {
   getGlobalLightbox();
 
-  const sizeRange = document.getElementById("imgSearchSizeRange");
+  const thumbSizeRange = document.getElementById("imgSearchThumbSizeRange");
+  const listSizeRange = document.getElementById("imgSearchListSizeRange");
   const btnSelectRoot = document.getElementById("btnImgSearchSelectRoot");
+  const btnRescan = document.getElementById("btnImgSearchRescan");
   const folderPicker = document.getElementById("imgSearchFolderPicker");
 
   btnSelectRoot?.addEventListener("click", selectImageRootFolder);
+  btnRescan?.addEventListener("click", rescanImageSearchRoot);
 
   folderPicker?.addEventListener("change", async e => {
     const files = Array.from(e.target.files || []);
@@ -1461,6 +2713,7 @@ function initImageSearchUI() {
 
     imgSearchRoot = root;
     imgSearchSelectedKey = root.key;
+    restoreImgSavedFolderSelection();
     imgSearchLoaded = true;
     renderImageSearchTree();
     await renderImageSearchGallery();
@@ -1470,29 +2723,90 @@ function initImageSearchUI() {
     const status = document.getElementById("imgSearchStatus");
     if (status) status.textContent = "선택 폴더: " + rootName + " · 이미지 " + countImgAll(root) + "장";
   });
-  const sizeVal = document.getElementById("imgSearchSizeVal");
+  const thumbSizeVal = document.getElementById("imgSearchThumbSizeVal");
+  const listSizeVal = document.getElementById("imgSearchListSizeVal");
   const tabs = document.getElementById("imgSearchOrientTabs");
   const btnFav = document.getElementById("btnImgSearchFavOnly");
-  const btnRescan = document.getElementById("btnImgSearchRescan");
   const viewModeCombo = document.getElementById("imgSearchViewMode");
+  const fileViewToggle = document.getElementById("imgSearchFileView");
+  const fileViewPane = document.getElementById("imgSearchFileListPane");
 
+  if (fileViewToggle) {
+    try { imgSearchFileView = localStorage.getItem("ak_img_file_view") === "1"; } catch (e) {}
+    fileViewToggle.checked = imgSearchFileView;
+    fileViewToggle.addEventListener("change", () => {
+      imgSearchFileView = !!fileViewToggle.checked;
+      try { localStorage.setItem("ak_img_file_view", imgSearchFileView ? "1" : "0"); } catch (e) {}
+      renderImgFileList();
+      refreshImgFileListSplitter();
+    });
+  }
+
+  initImgFileListSplitter();
+  refreshImgFileListSplitter();
+  // JSON에서 썸네일/List 크기를 각각 복원하고, 두 조절바를 독립적으로 운용합니다.
   try {
-    const s = parseInt(localStorage.getItem("ak_img_search_size") || "160", 10);
-    if (s >= 80 && s <= 1000) imgSearchSize = s;
-  } catch (e) {}
+    const legacy = parseInt(localStorage.getItem("ak_img_search_size") || "160", 10);
+    imgSearchThumbSize = Number.isFinite(Number(imgPictureSettings.thumbSize)) ? Number(imgPictureSettings.thumbSize) : (legacy >= 80 && legacy <= 1000 ? legacy : 160);
+    imgSearchListSize = Number.isFinite(Number(imgPictureSettings.listSize)) ? Number(imgPictureSettings.listSize) : (legacy >= 80 && legacy <= 1000 ? legacy : 160);
+  } catch (e) {
+    imgSearchThumbSize = Number(imgPictureSettings.thumbSize) || 160;
+    imgSearchListSize = Number(imgPictureSettings.listSize) || 160;
+  }
+  imgSearchSize = imgSearchViewMode === "list" ? imgSearchListSize : imgSearchThumbSize;
+  document.querySelector(".size-thumb-controls")?.classList.toggle("is-hidden", imgSearchViewMode !== "thumb");
+  document.querySelector(".size-list-controls")?.classList.toggle("is-hidden", imgSearchViewMode !== "list");
 
-  if (sizeRange) {
-    sizeRange.value = imgSearchSize;
-    if (sizeVal) sizeVal.textContent = imgSearchSize + "px";
-    sizeRange.addEventListener("input", () => {
-      imgSearchSize = parseInt(sizeRange.value, 10) || 160;
-      if (sizeVal) sizeVal.textContent = imgSearchSize + "px";
-      const gal = document.getElementById("imgSearchGallery");
-      gal?.querySelectorAll(".inline-gallery-item").forEach(it => {
-        const o = it.dataset.orient || "landscape";
-        if (imgSearchOrient === "all" || imgSearchOrient === o) it.style.width = imgSearchSize + "px";
-      });
-      try { localStorage.setItem("ak_img_search_size", String(imgSearchSize)); } catch (e) {}
+  if (thumbSizeRange) {
+    thumbSizeRange.value = imgSearchThumbSize;
+    if (thumbSizeVal) thumbSizeVal.textContent = imgSearchThumbSize + "px";
+    thumbSizeRange.addEventListener("input", () => {
+      imgSearchThumbSize = parseInt(thumbSizeRange.value, 10) || 160;
+      imgPictureSettings.thumbSize = imgSearchThumbSize;
+      if (imgSearchViewMode !== "list") {
+        imgSearchSize = imgSearchThumbSize;
+        const gal = document.getElementById("imgSearchGallery");
+        gal?.querySelectorAll(".inline-gallery-item").forEach(it => {
+          const o = it.dataset.orient || "landscape";
+          if (imgSearchOrient === "all" || imgSearchOrient === o) it.style.width = imgSearchThumbSize + "px";
+        });
+      }
+      if (thumbSizeVal) thumbSizeVal.textContent = imgSearchThumbSize + "px";
+      try { localStorage.setItem("ak_img_search_thumb_size", String(imgSearchThumbSize)); } catch (e) {}
+    });
+    thumbSizeRange.addEventListener("dblclick", () => {
+      imgSearchThumbSize = 160;
+      imgPictureSettings.thumbSize = 160;
+      thumbSizeRange.value = 160;
+      if (thumbSizeVal) thumbSizeVal.textContent = "160px";
+      if (imgSearchViewMode !== "list") { imgSearchSize = 160; renderImageSearchGallery(); }
+    });
+  }
+
+  if (listSizeRange) {
+    listSizeRange.value = imgSearchListSize;
+    if (listSizeVal) listSizeVal.textContent = imgSearchListSize + "px";
+    listSizeRange.addEventListener("input", () => {
+      imgSearchListSize = parseInt(listSizeRange.value, 10) || 160;
+      imgPictureSettings.listSize = imgSearchListSize;
+      if (imgSearchViewMode === "list") {
+        imgSearchSize = imgSearchListSize;
+        const gal = document.getElementById("imgSearchGallery");
+        gal?.querySelectorAll(".inline-gallery-item").forEach(it => {
+          it.style.width = imgSearchListSize + "px";
+          it.style.maxWidth = imgSearchListSize + "px";
+        });
+        gal?.style.setProperty("--list-item-w", imgSearchListSize + "px");
+      }
+      if (listSizeVal) listSizeVal.textContent = imgSearchListSize + "px";
+      try { localStorage.setItem("ak_img_search_list_size", String(imgSearchListSize)); } catch (e) {}
+    });
+    listSizeRange.addEventListener("dblclick", () => {
+      imgSearchListSize = 160;
+      imgPictureSettings.listSize = 160;
+      listSizeRange.value = 160;
+      if (listSizeVal) listSizeVal.textContent = "160px";
+      if (imgSearchViewMode === "list") { imgSearchSize = 160; renderImageSearchGallery(); }
     });
   }
 
@@ -1508,11 +2822,6 @@ function initImageSearchUI() {
 
   if (btnFav) {
     btnFav.addEventListener("click", () => {
-      const acts = Array.isArray(window.ACTRESSES) ? window.ACTRESSES : [];
-      if (!acts.length) {
-        showToast("독립 실행 파일에서는 배우 즐겨찾기 DB가 없습니다");
-        return;
-      }
       imgSearchFavOnly = !imgSearchFavOnly;
       btnFav.classList.toggle("active", imgSearchFavOnly);
       btnFav.textContent = imgSearchFavOnly ? "★ 즐겨찾기만" : "☆ 즐겨찾기만";
@@ -1521,22 +2830,11 @@ function initImageSearchUI() {
     });
   }
 
-  if (btnRescan) {
-    btnRescan.addEventListener("click", () => {
-      if (window.__imgRootHandle) {
-        scanSelectedDirectory(window.__imgRootHandle, window.__imgRootHandle.name);
-      } else {
-        selectImageRootFolder();
-      }
-    });
-  }
-
   if (viewModeCombo) {
     applyImgViewMode(imgPictureSettings.viewMode, false);
     viewModeCombo.querySelectorAll("button[data-mode]").forEach(b => {
       b.addEventListener("click", () => {
         applyImgViewMode(b.dataset.mode, true);
-        writeImgPictureSettings();
         renderImageSearchGallery();
       });
     });
@@ -1550,83 +2848,31 @@ function initImageSearchUI() {
     }, { passive: false });
   }
 
-  if (sizeRange) sizeRange.addEventListener("dblclick", () => {
-    imgSearchSize = 160;
-    sizeRange.value = 160;
-    if (sizeVal) sizeVal.textContent = "160px";
-    renderImageSearchGallery();
-  });
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    const w = parseInt(localStorage.getItem(IMG_TREE_WIDTH_KEY) || "300", 10);
-    const v = localStorage.getItem(IMG_VIEW_MODE_KEY) || localStorage.getItem("ak_img_search_view_mode") || "thumb";
-    imgPictureSettings.treeWidth = Number.isFinite(w) ? w : 300;
-    imgPictureSettings.viewMode = v === "list" ? "list" : "thumb";
-  } catch(e) {}
+  // Local web-server mode: load the shared JSON beside the HTML BEFORE building the screen.
+  await readImgPictureSettings();
+  await loadFolderCacheFile();
+  applyImgSettingsAfterRootSelection();
   initImageSearchUI();
   initImgSearchSplitter();
-  await scanImageSearchRoot();
+
+  // 초기 레이아웃 계산이 끝난 뒤 JSON에서 읽은 treeWidth를 한 번 더 적용한다.
+  // 첫 실행에서도 기본값 300px으로 보이는 순간을 방지한다.
+  requestAnimationFrame(() => {
+    applyImgTreeWidth(imgPictureSettings.treeWidth, false);
+  });
+
+  const restored = await restoreSavedImgRoot();
+  if (!restored) await scanImageSearchRoot();
 });
 
-document.getElementById("btnCacheDownload")?.addEventListener("click", downloadFolderCacheFile);
+document.getElementById("btnCacheDownload")?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  await downloadFolderCacheFile();
+});
 
-if (!window.__akSettingsSaveHooksInstalled) {
-  window.__akSettingsSaveHooksInstalled = true;
-
-  const saveAfterUiChange = () => {
-    try { saveImgSettingsToFile(); } catch (e) {}
-  };
-
-  document.addEventListener("pointerup", e => {
-    if (e.target && (e.target.closest?.("#imgSearchTreeSplitter") ||
-                     e.target.closest?.(".img-tree-splitter"))) {
-      setTimeout(saveAfterUiChange, 0);
-    }
-  }, true);
-
-  window.addEventListener("beforeunload", () => {
-    try { saveImgSettingsToFile(); } catch (e) {}
-  });
-}
-
-
-setTimeout(async () => {
-  try {
-    // Settings are intentionally stored in the HTML execution/project folder,
-    // not in the selected image folder. This is a one-time browser permission.
-    if (!imgSettingsDirHandle && window.showDirectoryPicker) {
-      await chooseImgSettingsLocation();
-      if (window.__akSavedFolderPath && imgSearchRoot) {
-        restoreImgSavedFolderSelection();
-      }
-    }
-  } catch (e) {}
-}, 300);
-
-
-window.__akFolderClickRepair = true;
-document.addEventListener("click", async (ev) => {
-  const el = ev.target.closest?.("[data-img-folder-key],[data-folder-key],[data-key]");
-  if (!el) return;
-  const key = el.dataset.imgFolderKey || el.dataset.folderKey || el.dataset.key;
-  if (!key) return;
-
-  const node = findImgNode(imgSearchRoot, key);
-  if (!node) return;
-
-  // If this is a deferred folder, make it real before the gallery is rendered.
-  if (node._needsScan || !node._structureLoaded) {
-    ev.preventDefault();
-    ev.stopImmediatePropagation();
-    imgSearchSelectedKey = key;
-    await ensureImgNodeStructureLoaded(node);
-    renderImageSearchTree();
-    await renderImageSearchGallery();
-    scheduleImgSearchTreeDefaultExpansion();
-  }
-}, true);
 
 </script>
 </body>
