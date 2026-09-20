@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ak_picture · 이미지 검색 · v1.36</title>
+<title id="pageTitle">ak_picture · 이미지 검색 · v1.38</title>
 <style>
 html,body { height:100%; margin:0; }
 :root {
@@ -140,8 +140,9 @@ main { height:calc(100vh - 56px); display:flex; overflow:hidden; }
 </style></head>
 <body>
 <header>
-  <h1><span>ak</span>_picture · 이미지 검색 <small style="font-size:13px;opacity:.7;font-weight:500">v1.36</small></h1>
+  <h1><span>ak</span>_picture · <span id="appTitleText">이미지 검색</span> <small style="font-size:13px;opacity:.7;font-weight:500">v1.38</small></h1>
   <button class="btn primary" id="btnCacheDownload" style="margin-left:auto">⬇ JSON 저장</button>
+  <button class="btn" id="btnLangToggle" style="margin-left:6px">한/日 전환</button>
 </header>
 <div class="toast" id="toast"></div>
 <div id="akScanProgress"><div id="akScanProgressTitle">폴더 구조 읽는 중…</div><div id="akScanProgressBar"><div id="akScanProgressFill"></div></div><div id="akScanProgressDetail">준비 중</div></div>
@@ -163,7 +164,7 @@ main { height:calc(100vh - 56px); display:flex; overflow:hidden; }
           <button type="button" class="btn" id="btnImgSearchRescan" title="선택 폴더의 폴더 구조와 파일 건수를 다시 조사하여 캐시를 갱신">ReScan</button>
           <input type="file" id="imgSearchFolderPicker" webkitdirectory directory multiple hidden>
         </div>
-        <div class="tree-view-mode-bar" title="이름 폴더는 항상 썸네일 · 하위 폴더만 List 적용">
+        <div class="tree-view-mode-bar" title="이름 폴더는 항상 썸네일 · 하위 폴더만 List 적용" id="imgSearchViewModeTitle">
           <div class="view-mode-combo" id="imgSearchViewMode" role="group" aria-label="보기 모드">
             <button type="button" data-mode="thumb" class="active">썸네일</button>
             <button type="button" data-mode="list">List</button>
@@ -225,6 +226,110 @@ main { height:calc(100vh - 56px); display:flex; overflow:hidden; }
 .tree-fav-toggle { color:#fff; }
 .tree-fav-toggle.is-favorite { color:#ffd700; }
 </style>
+<script>
+/* v1.39 한/日 UI 언어 전환 · 선택 언어는 ak_picture_settings.json에 저장 */
+const UI_TEXT = {
+  ko: {
+    appTitle:'이미지 검색', jsonSave:'⬇ JSON 저장', langToggle:'한/日 전환',
+    folderSelect:'폴더 선택', thumb:'썸네일', list:'List', favOnly:'☆ 즐겨찾기만', favOnlyOn:'★ 즐겨찾기만',
+    fileView:'파일보기', folderSearch:'🔎 폴더 검색...', searchClear:'검색 지우기',
+    fileListTitle:'선택 폴더 파일', chooseFolder:'폴더를 선택하세요', scanning:'폴더 스캔 중…',
+    orientAll:'전체', orientLandscape:'가로', orientPortrait:'세로',
+    statusChoose:'이미지 폴더 0개 · 폴더를 선택하면 이미지를 불러옵니다',
+    noFavFolders:'즐겨찾기 폴더가 없습니다', noFolders:'표시할 이미지 폴더가 없습니다',
+    noImages:'이미지 파일이 없습니다.', folderNotSelected:'폴더가 선택되지 않았습니다',
+    chooseBase:'상단의 「폴더 선택」을 눌러 기준 폴더를 선택하세요',
+    folderRead:'폴더 내용 읽는 중…', folderUnreadable:'폴더를 읽을 수 없습니다',
+    folderExpand:'폴더 구조 확장 중…', translating:'번역 중…', koreanTranslating:'한국어 번역 중…',
+    images:'이미지', imageFolders:'이미지 폴더',
+    imageListPreparing:'이미지 목록 준비 중…', noImage:'이미지 없음',
+    scrollLoad:'스크롤하면 계속 로드', loaded:'로드',
+    folderAccessFail:'폴더 접근 실패 · 다시 폴더를 선택하거나 ReScan 해주세요',
+    selectedPath:'선택 경로', selectedFolder:'선택 폴더',
+    rescan:'ReScan', rescanBusy:'Rescan…', rescanStarting:'ReScan 시작… 폴더 구조와 파일 건수를 조사합니다.',
+    rescanProgress:'ReScan 중… {dirs}개 폴더 · {images}개 이미지 · {sec}초',
+    rescanDone:'ReScan 완료 · {dirs}개 폴더 · 이미지 {images}장 · {sec}초',
+    rescanSaved:'ReScan 완료 · 변경 내용은 메모리에 반영되었습니다. JSON 저장은 \'JSON 저장\' 버튼을 눌러주세요',
+    rescanFail:'ReScan 실패: {msg}', rescanTree:'ReScan 중…',
+    quickScan:'빠른 폴더 구조 스캔 중…', scanProgress:'폴더 구조 스캔 중… {n}개 항목',
+    preparingTree:'선택한 폴더 구조 준비 중…', cannotRead:'폴더를 읽을 수 없습니다',
+    scanFolder:'폴더 구조 읽는 중…', ready:'준비 중', scanDetail:'파일 내용은 아직 읽지 않습니다.', scanCheck:'ReScan · 폴더 정보와 파일 건수 확인', scanCheckDetail:'{n}개 항목 확인 · 경과 {sec}초', scanAllStart:'ReScan · 전체 폴더 조사 시작', scanAllDetail:'폴더별 이미지 파일 건수를 확인합니다.', scanDoneTitle:'ReScan 완료', scanDoneDetail:'폴더 구조와 파일 건수를 act_folder_cache.json에 반영했습니다 · {sec}초', scanFailTitle:'ReScan 실패', subfolderReadDone:'하위 폴더 읽기 완료', subfolderReadDetail:'이미지 파일 내용은 지연 로드', subfolderStatus:'하위 폴더 {n}개 · ', treeScanDetail:'{n}개 항목 확인 · 이미지 파일은 아직 열지 않음', folderReadDone:'폴더 읽기 완료', folderReadDoneDetail:'하위 폴더는 클릭할 때 읽습니다.',
+    saveDone:'JSON 저장 완료 · 확인된 폴더 건수를 유지하여 저장했습니다',
+    saveFail:'JSON 저장 실패: {msg}', selectImageFolder:'먼저 \'폴더 선택\'으로 이미지 폴더를 선택하세요.',
+    selectBaseFolder:'먼저 \'폴더 선택\'으로 기준 폴더를 선택하세요.', cancelFolder:'폴더 선택을 취소했거나 접근할 수 없습니다',
+    scanFail:'폴더 스캔 실패: {msg}',
+    noFavImageFolders:'즐겨찾기 이미지 폴더 없음',
+    imageCount:'이미지 {n}', allCount:'전체 {n}장 / 로드 {loaded}장',
+    orientStatus:'{label} {shown}장 / 로드 {all}장',
+    imageFolderStatus:'이미지 폴더 {n}개 · 폴더를 선택하면 이미지를 불러옵니다',
+    listSuffix:' · List', selectPath:'선택 경로: {name}', selectFolderStatus:'선택 폴더: {name} · 이미지 {n}장',
+    dragTree:'드래그하여 트리와 파일 목록 폭 조절', dragRoot:'드래그하여 트리 폭 조절',
+    nameFolderTip:'이름 폴더는 항상 썸네일 · 하위 폴더만 List 적용', viewMode:'보기 모드'
+  },
+  ja: {
+    appTitle:'画像検索', jsonSave:'⬇ JSON 保存', langToggle:'한/日 전환',
+    folderSelect:'フォルダを選択', thumb:'サムネイル', list:'List', favOnly:'☆ お気に入りのみ', favOnlyOn:'★ お気に入りのみ',
+    fileView:'ファイルを見る', folderSearch:'🔎 フォルダを検索...', searchClear:'検索を消去',
+    fileListTitle:'選択フォルダのファイル', chooseFolder:'フォルダを選択してください', scanning:'フォルダをスキャン中…',
+    orientAll:'すべて', orientLandscape:'横', orientPortrait:'縦',
+    statusChoose:'画像フォルダ 0個 · フォルダを選択すると画像を読み込みます',
+    noFavFolders:'お気に入りフォルダがありません', noFolders:'表示する画像フォルダがありません',
+    noImages:'画像ファイルがありません。', folderNotSelected:'フォルダが選択されていません',
+    chooseBase:'上部の「フォルダを選択」を押して基準フォルダを選択してください',
+    folderRead:'フォルダの内容を読み込み中…', folderUnreadable:'フォルダを読み込めません',
+    folderExpand:'フォルダ構造を展開中…', translating:'翻訳中…', koreanTranslating:'韓国語に翻訳中…',
+    images:'画像', imageFolders:'画像フォルダ', imageListPreparing:'画像一覧を準備中…', noImage:'画像なし',
+    scrollLoad:'スクロールすると続けて読み込み', loaded:'読み込み',
+    folderAccessFail:'フォルダにアクセスできません · フォルダを選択し直すかReScanしてください',
+    selectedPath:'選択パス', selectedFolder:'選択フォルダ', rescan:'ReScan', rescanBusy:'Rescan…',
+    rescanStarting:'ReScan開始… フォルダ構造とファイル数を調査します。',
+    rescanProgress:'ReScan中… {dirs}個のフォルダ · {images}個の画像 · {sec}秒',
+    rescanDone:'ReScan完了 · {dirs}個のフォルダ · 画像 {images}枚 · {sec}秒',
+    rescanSaved:'ReScan完了 · 変更内容はメモリに反映されました。JSON保存は「JSON 保存」ボタンを押してください',
+    rescanFail:'ReScan失敗: {msg}', rescanTree:'ReScan中…', quickScan:'フォルダ構造を高速スキャン中…',
+    scanProgress:'フォルダ構造をスキャン中… {n}項目', preparingTree:'選択したフォルダ構造を準備中…',
+    cannotRead:'フォルダを読み込めません', scanFolder:'フォルダ構造を読み込み中…', ready:'準備中', scanDetail:'ファイル内容はまだ読み込みません。', scanCheck:'ReScan · フォルダ情報とファイル数を確認', scanCheckDetail:'{n}項目確認 · 経過 {sec}秒', scanAllStart:'ReScan · 全フォルダの調査を開始', scanAllDetail:'フォルダごとの画像ファイル数を確認します。', scanDoneTitle:'ReScan完了', scanDoneDetail:'フォルダ構造とファイル数をact_folder_cache.jsonに反映しました · {sec}秒', scanFailTitle:'ReScan失敗', subfolderReadDone:'サブフォルダの読み込み完了', subfolderReadDetail:'画像ファイルの内容は遅延読み込み', subfolderStatus:'サブフォルダ {n}個 · ', treeScanDetail:'{n}項目確認 · 画像ファイルはまだ開いていません', folderReadDone:'フォルダ読み込み完了', folderReadDoneDetail:'サブフォルダはクリック時に読み込みます。',
+    saveDone:'JSON保存完了 · 確認したフォルダ数を維持して保存しました', saveFail:'JSON保存失敗: {msg}',
+    selectImageFolder:'まず「フォルダを選択」で画像フォルダを選択してください。',
+    selectBaseFolder:'まず「フォルダを選択」で基準フォルダを選択してください。',
+    cancelFolder:'フォルダの選択をキャンセルしたか、アクセスできません', scanFail:'フォルダスキャン失敗: {msg}',
+    noFavImageFolders:'お気に入り画像フォルダがありません', imageCount:'画像 {n}',
+    allCount:'全 {n}枚 / 読み込み {loaded}枚', orientStatus:'{label} {shown}枚 / 読み込み {all}枚',
+    imageFolderStatus:'画像フォルダ {n}個 · フォルダを選択すると画像を読み込みます', listSuffix:' · List',
+    selectPath:'選択パス: {name}', selectFolderStatus:'選択フォルダ: {name} · 画像 {n}枚',
+    dragTree:'ドラッグしてツリーとファイル一覧の幅を調整', dragRoot:'ドラッグしてツリーの幅を調整',
+    nameFolderTip:'名前フォルダは常にサムネイル · サブフォルダのみList適用', viewMode:'表示モード'
+  }
+};
+let uiLang = 'ko';
+function tr(key, vars={}) { let s=(UI_TEXT[uiLang]&&UI_TEXT[uiLang][key])||UI_TEXT.ko[key]||key; return s.replace(/\{(\w+)\}/g,(_,k)=>vars[k]??''); }
+function updateUiLanguage(){
+  const q=id=>document.getElementById(id);
+  document.title='ak_picture · '+tr('appTitle')+' · v1.39';
+  if(q('appTitleText')) q('appTitleText').textContent=tr('appTitle');
+  if(q('btnCacheDownload')) q('btnCacheDownload').textContent=tr('jsonSave');
+  if(q('btnLangToggle')) q('btnLangToggle').textContent=tr('langToggle');
+  if(q('btnImgSearchSelectRoot')) q('btnImgSearchSelectRoot').textContent=tr('folderSelect');
+  document.querySelectorAll('#imgSearchViewMode button[data-mode="thumb"]').forEach(e=>e.textContent=tr('thumb'));
+  document.querySelectorAll('#imgSearchViewMode button[data-mode="list"]').forEach(e=>e.textContent=tr('list'));
+  const fav=q('btnImgSearchFavOnly'); if(fav) fav.textContent=imgSearchFavOnly?tr('favOnlyOn'):tr('favOnly');
+  const fv=q('imgSearchFileView'); const fl=document.querySelector('label[for="imgSearchFileView"]'); if(fl) fl.textContent=tr('fileView');
+  const fs=q('imgSearchFolderFilter'); if(fs) fs.placeholder=tr('folderSearch');
+  const fc=q('btnImgSearchFolderFilterClear'); if(fc) fc.title=tr('searchClear');
+  const flt=q('imgSearchFileListTitle'); if(flt) flt.textContent=tr('fileListTitle');
+  const tabs=q('imgSearchOrientTabs'); if(tabs){ const a=tabs.querySelector('[data-orient="all"]'); const l=tabs.querySelector('[data-orient="landscape"]'); const p=tabs.querySelector('[data-orient="portrait"]'); if(a)a.firstChild.textContent=tr('orientAll')+' '; if(l)l.firstChild.textContent=tr('orientLandscape')+' '; if(p)p.firstChild.textContent=tr('orientPortrait')+' '; }
+  document.querySelectorAll('.size-thumb-controls label').forEach(e=>e.textContent=tr('thumb'));
+  const root=q('imgSearchRootLabel'); if(root && !imgSearchRoot) root.textContent='📁 '+tr('chooseFolder');
+  const st=q('imgSearchStatus'); if(st && (!imgSearchRoot || !imgSearchSelectedKey)) st.textContent=tr('chooseFolder');
+  const empty=q('imgSearchFileList'); if(empty && !imgSearchRoot) empty.innerHTML='<div class="img-file-empty">'+tr('chooseFolder')+'</div>';
+  const body=q('imgSearchTreeBody'); if(body && !imgSearchRoot) body.innerHTML='<div class="tree-empty">'+tr('folderNotSelected')+'<br><span style="font-size:0.75rem">'+tr('chooseBase')+'</span></div>';
+  const prog=q('akScanProgressTitle'); if(prog) prog.textContent=tr('scanFolder');
+  const pr=q('akScanProgressDetail'); if(pr) pr.textContent=tr('ready');
+  if(typeof renderImageSearchTree==='function' && imgSearchRoot) renderImageSearchTree();
+  if(typeof renderImageSearchGallery==='function' && imgSearchSelectedKey) renderImageSearchGallery();
+}
+function toggleUiLanguage(){ uiLang=uiLang==='ko'?'ja':'ko'; imgPictureSettings.uiLang=uiLang; updateUiLanguage(); }
+</script>
 <script>
 
 const FOLDER_CACHE_FILE = "act_folder_cache.json";
@@ -483,7 +588,7 @@ async function downloadFolderCacheFile() {
   try {
     const root = imgSearchRoot;
     if (!root) {
-      showToast("먼저 '폴더 선택'으로 이미지 폴더를 선택하세요.");
+      showToast(tr("selectImageFolder"));
       return;
     }
 
@@ -569,6 +674,7 @@ async function downloadFolderCacheFile() {
       listSize: Math.round(Number(imgPictureSettings.listSize) || 160),
       selectedPath: imgPictureSettings.selectedPath || "./",
       rootFolderName: root.name || window.__imgRootHandle?.name || "",
+      uiLang: imgPictureSettings.uiLang === "ja" ? "ja" : "ko",
       favoriteFolders: JSON.parse(JSON.stringify(imgPictureSettings.favoriteFolders || {})),
       treeCollapsed: JSON.parse(JSON.stringify(window.__imgTreeCollapsed || { act: {} })),
       updatedAt: now
@@ -583,10 +689,10 @@ async function downloadFolderCacheFile() {
 
     if (window.__imgRootHandle) await saveImgRootHandle(window.__imgRootHandle);
 
-    showToast("JSON 저장 완료 · 확인된 폴더 건수를 유지하여 저장했습니다");
+    showToast(tr("saveDone"));
   } catch (e) {
     console.error(e);
-    showToast("JSON 저장 실패: " + (e?.message || e));
+    showToast(tr("saveFail", {msg:e?.message || e}));
   }
 }
 function applyFavoriteStateFromSettings(root) {
@@ -762,23 +868,15 @@ function getGlobalLightbox() {
     centerScroll();
   });
 
+  // 확대창에서는 Ctrl 없이 일반 마우스 휠만 움직여도 확대/축소한다.
+  // 커서가 가리키는 지점을 중심으로 확대/축소하여 화면의 원하는 부분을 유지한다.
+  // 이동 범위는 lightbox의 실제 scrollWidth/scrollHeight로 제한되므로
+  // 확대된 이미지의 가장자리까지 빠짐없이 볼 수 있다.
   lb.addEventListener("wheel", e => {
     if (!isOpen()) return;
-    if (e.ctrlKey) {
-      // Ctrl + wheel: zoom while keeping the point under the cursor fixed.
-      e.preventDefault();
-      zoomBy(e.deltaY < 0 ? 1 : -1, e.clientX, e.clientY);
-      return;
-    }
-    // After zooming, ordinary mouse-wheel scrolling pans the image.
-    // Shift + wheel is used for horizontal panning on a standard mouse.
-    if (scale > 1.001) {
-      e.preventDefault();
-      const dx = e.shiftKey ? (e.deltaY || e.deltaX) : (e.deltaX || 0);
-      const dy = e.shiftKey ? 0 : (e.deltaY || 0);
-      lb.scrollLeft += dx;
-      lb.scrollTop += dy;
-    }
+    e.preventDefault();
+    e.stopPropagation();
+    zoomBy(e.deltaY < 0 ? 1 : -1, e.clientX, e.clientY);
   }, { passive: false });
 
   const onMove = e => {
@@ -1024,7 +1122,7 @@ async function ensureImgNodeStructureLoaded(node) {
   const entries = [];
 
   try {
-    if (status) status.textContent = "폴더 내용 읽는 중… · " + (node.name || "");
+    if (status) status.textContent = tr("folderRead") + " · " + (node.name || "");
 
     let n = 0;
     for await (const [name, entry] of node._handle.entries()) {
@@ -1112,12 +1210,12 @@ async function ensureImgNodeStructureLoaded(node) {
       }
     }
     node._needsScan = false;
-    akSetScanProgress("하위 폴더 읽기 완료", (node.name || "폴더") + " · 이미지 파일 내용은 지연 로드", 100);
+    akSetScanProgress(tr("subfolderReadDone"), (node.name || tr("selectedFolder")) + " · " + tr("subfolderReadDetail"), 100);
     setTimeout(() => akSetScanProgress("", "", 0, true), 500);
     return node;
   } catch (e) {
     console.error("on-demand folder scan failed", e);
-    if (status) status.textContent = "폴더를 읽을 수 없습니다";
+    if (status) status.textContent = tr("cannotRead");
     return node;
   }
 }
@@ -1181,7 +1279,7 @@ async function enrichAllFolderStructures(root, statusEl) {
   const kids = root.children, BATCH = 6;
   for (let i = 0; i < kids.length; i += BATCH) {
     const slice = kids.slice(i, i + BATCH);
-    if (statusEl) statusEl.textContent = "폴더 구조 확장 중… " +
+    if (statusEl) statusEl.textContent = tr("folderExpand") + " " +
       Math.min(i + BATCH, kids.length) + "/" + kids.length;
     await Promise.all(slice.map(async c => {
       if (c._filesLoaded) return;
@@ -1304,7 +1402,7 @@ function bindFolderTranslationTooltip(row, folderName) {
     active = true;
     const tip = ensureFolderTranslationTip();
     tip.querySelector(".jp").textContent = String(folderName || "");
-    tip.querySelector(".ko").textContent = "한국어 번역 중…";
+    tip.querySelector(".ko").textContent = tr("koreanTranslating");
     tip.classList.add("show");
     positionFolderTranslationTip(row);
     const ko = await translateFolderNameToKorean(folderName);
@@ -1327,14 +1425,13 @@ function renderImageFolderList(gal, status, root, favOnly, onSelectKey) {
   }
   children.sort((a, b) => String(a.name).localeCompare(String(b.name), "ja"));
 
-  if (status) status.textContent = "이미지 폴더 " + children.length +
-    "개 · 폴더를 선택하면 이미지를 불러옵니다";
+  if (status) status.textContent = tr("imageFolderStatus", {n:children.length});
 
   if (!children.length) {
     const empty = document.createElement("div");
     empty.className = "tree-empty";
     empty.style.padding = "24px";
-    empty.textContent = favOnly ? "즐겨찾기 이미지 폴더 없음" : "표시할 이미지 폴더가 없습니다";
+    empty.textContent = favOnly ? tr("noFavImageFolders") : tr("noFolders");
     gal.appendChild(empty);
     return;
   }
@@ -1389,8 +1486,7 @@ function renderImageSearchTree() {
   const body = document.getElementById("imgSearchTreeBody");
   if (!body) return;
   if (!imgSearchRoot) {
-    body.innerHTML = '<div class="tree-empty">폴더가 선택되지 않았습니다<br>' +
-      '<span style="font-size:0.75rem">상단의 「폴더 선택」을 눌러 기준 폴더를 선택하세요</span></div>';
+    body.innerHTML = '<div class="tree-empty">' + tr("folderNotSelected") + '<br><span style="font-size:0.75rem">' + tr("chooseBase") + '</span></div>';
     return;
   }
 
@@ -1399,7 +1495,7 @@ function renderImageSearchTree() {
     (!imgSearchFavOnly || isFavoriteFilterVisible(c, favoriteScope)) &&
     (!imgSearchFolderFilter || imgFolderHasMatch(c, imgSearchFolderFilter)));
   if (imgSearchFavOnly && topChildren.length === 0) {
-    body.innerHTML = '<div class="tree-empty">즐겨찾기 폴더가 없습니다</div>';
+    body.innerHTML = '<div class="tree-empty">' + tr("noFavFolders") + '</div>';
     return;
   }
 
@@ -1598,11 +1694,11 @@ function renderImgFileList() {
   listEl.innerHTML = "";
 
   if (!node) {
-    listEl.innerHTML = '<div class="img-file-empty">폴더를 선택하세요</div>';
+    listEl.innerHTML = '<div class="img-file-empty">' + tr("chooseFolder") + '</div>';
     return;
   }
   if (!files.length) {
-    listEl.innerHTML = '<div class="img-file-empty">이미지 파일이 없습니다.</div>';
+    listEl.innerHTML = '<div class="img-file-empty">' + tr("noImages") + '</div>';
     return;
   }
 
@@ -1684,7 +1780,7 @@ async function selectImgSearchFolder(key) {
   // handle 확보에 실패하면 갤러리가 조용히 빈 화면이 되지 않도록 상태를 명확히 표시합니다.
   if (node && !node.isRoot && !node._handle) {
     const st = document.getElementById("imgSearchStatus");
-    if (st) st.textContent = "폴더 접근 실패 · 다시 폴더를 선택하거나 ReScan 해주세요 · " + (node.name || "");
+    if (st) st.textContent = tr("folderAccessFail") + " · " + (node.name || "");
     renderImgFileList();
     await renderImageSearchGallery();
     return;
@@ -1693,9 +1789,9 @@ async function selectImgSearchFolder(key) {
 
   const selectedPathLabel = getImgFolderDisplayPath(node);
   const selectedStatus = document.getElementById("imgSearchStatus");
-  if (selectedStatus && selectedPathLabel) selectedStatus.textContent = "선택 경로: " + selectedPathLabel;
+  if (selectedStatus && selectedPathLabel) selectedStatus.textContent = tr("selectPath", {name:selectedPathLabel});
   const rootLabelEl = document.getElementById("imgSearchRootLabel");
-  if (rootLabelEl && imgSearchRoot) rootLabelEl.textContent = "📁 " + (imgSearchRoot.name || "선택 폴더");
+  if (rootLabelEl && imgSearchRoot) rootLabelEl.textContent = "📁 " + (imgSearchRoot.name || tr("selectedFolder"));
 
   renderImageSearchTree();
   if (!node) {
@@ -1725,12 +1821,12 @@ async function renderImageSearchGallery() {
 
 
   const node = findImgNode(imgSearchRoot, imgSearchSelectedKey);
-  if (!node) { if (status) status.textContent = "폴더를 선택하세요"; return; }
+  if (!node) { if (status) status.textContent = tr("chooseFolder"); return; }
 
   // 선택한 폴더 자체의 이미지도 함께 표시할 수 있도록 직접 파일을 먼저 준비한다.
   // 상위 폴더라면 하위 폴더 목록을 먼저 보여주고, 직접 포함된 이미지가 있으면
   // 그 아래에 이미지도 이어서 표시한다. (하위 폴더의 이미지는 중복 표시하지 않는다.)
-  if (status) status.textContent = "이미지 목록 준비 중… · " + node.name;
+  if (status) status.textContent = tr("imageListPreparing") + " · " + node.name;
   await ensureFolderImagesLoaded(node);
   renderImageSearchTree();
 
@@ -1738,7 +1834,7 @@ async function renderImageSearchGallery() {
   const directFiles = (node.files || []).slice();
 
   if (hasChildren) {
-    if (status) status.textContent = "하위 폴더 " + node.children.length.toLocaleString() + "개 · " +
+    if (status) status.textContent = tr("subfolderStatus", {n:node.children.length.toLocaleString()}) +
       (directFiles.length ? "직접 이미지 " + directFiles.length.toLocaleString() + "개 · " : "") + (node.name || "");
     tabs?.querySelectorAll(".orient-tab .n").forEach(el => el.textContent = "(0)");
     renderImageFolderList(gal, status, node, imgSearchFavOnly, key => selectImgSearchFolder(key));
@@ -1779,18 +1875,18 @@ async function renderImageSearchGallery() {
       if (!useList && ok) it.style.width = imgSearchThumbSize + "px";
     });
 
-    const label = imgSearchOrient === "landscape" ? "가로" :
-      imgSearchOrient === "portrait" ? "세로" : "전체";
+    const label = imgSearchOrient === "landscape" ? tr("orientLandscape") :
+      imgSearchOrient === "portrait" ? tr("orientPortrait") : tr("orientAll");
     if (status) {
-      status.textContent = !all ? "이미지 없음 · " + (node.name || "") :
-        label + " " + shown + "장 / 로드 " + all + "장 · " +
-        (node.name || node.label || "") + (list.length > all ? " · 스크롤하면 계속 로드" : "") +
-        (useList ? " · List" : "");
+      status.textContent = !all ? tr("noImage") + " · " + (node.name || "") :
+        tr("orientStatus", {label, shown, all}) + " · " +
+        (node.name || node.label || "") + (list.length > all ? " · " + tr("scrollLoad") : "") +
+        (useList ? tr("listSuffix") : "");
     }
   }
 
   if (!list.length) {
-    if (status) status.textContent = "이미지 없음 · " + (node.name || "");
+    if (status) status.textContent = tr("noImage") + " · " + (node.name || "");
     updateTabs();
     return;
   }
@@ -2100,16 +2196,16 @@ async function loadRootFromCacheFirst(dirHandle, displayName) {
 
 async function rescanImageSearchRoot() {
   const handle = window.__imgRootHandle;
-  if (!handle) { showToast("먼저 '폴더 선택'으로 기준 폴더를 선택하세요."); return; }
+  if (!handle) { showToast(tr("selectBaseFolder")); return; }
 
   // ReScan은 전체 폴더를 다시 조사하므로 실행 전에 사용자 확인을 받습니다.
   const ok = window.confirm(
-    "ReScan을 실행하시겠습니까?\n\n선택한 폴더의 모든 하위 폴더와 이미지 파일을 다시 조사합니다.\n폴더 수와 이미지 수에 따라 시간이 걸릴 수 있습니다."
+    uiLang === "ja" ? "ReScanを実行しますか？\n\n選択したフォルダのすべてのサブフォルダと画像ファイルを再調査します。\nフォルダ数と画像数によって時間がかかる場合があります。" : "ReScan을 실행하시겠습니까?\n\n선택한 폴더의 모든 하위 폴더와 이미지 파일을 다시 조사합니다.\n폴더 수와 이미지 수에 따라 시간이 걸릴 수 있습니다."
   );
   if (!ok) return;
 
   const btn = document.getElementById("btnImgSearchRescan");
-  if (btn) { btn.disabled = true; btn.textContent = "Rescan…"; }
+  if (btn) { btn.disabled = true; btn.textContent = tr("rescanBusy"); }
   const started = performance.now();
   const status = document.getElementById("imgSearchStatus");
   const body = document.getElementById("imgSearchTreeBody");
@@ -2132,8 +2228,8 @@ async function rescanImageSearchRoot() {
       else if (IMAGE_RE.test(name)) files.push({name, handle: entry});
       if (entriesSeen % 300 === 0) {
         const sec = ((performance.now()-started)/1000).toFixed(1);
-        if (status) status.textContent = "ReScan 중… " + dirsDone.toLocaleString() + "개 폴더 · " + imageCount.toLocaleString() + "개 이미지 · " + sec + "초";
-        akSetScanProgress("ReScan · 폴더 정보와 파일 건수 확인", entriesSeen.toLocaleString() + "개 항목 확인 · 경과 " + sec + "초", 0);
+        if (status) status.textContent = tr("rescanProgress", {dirs:dirsDone.toLocaleString(),images:imageCount.toLocaleString(),sec});
+        akSetScanProgress(tr("scanCheck"), tr("scanCheckDetail", {n:entriesSeen.toLocaleString(),sec}), 0);
         await new Promise(r => requestAnimationFrame(r));
       }
     }
@@ -2160,9 +2256,9 @@ async function rescanImageSearchRoot() {
   };
 
   try {
-    if (status) status.textContent = "ReScan 시작… 폴더 구조와 파일 건수를 조사합니다.";
-    if (body) body.innerHTML = '<div class="tree-empty">ReScan 중…</div>';
-    akSetScanProgress("ReScan · 전체 폴더 조사 시작", "폴더별 이미지 파일 건수를 확인합니다.", 0);
+    if (status) status.textContent = tr("rescanStarting");
+    if (body) body.innerHTML = '<div class="tree-empty">' + tr("rescanTree") + '</div>';
+    akSetScanProgress(tr("scanAllStart"), tr("scanAllDetail"), 0);
     const root = await scanDir(handle, "./", 0, true);
     root.name = handle.name; root.label = handle.name;
     root.key = "__selected_root__"; root.pathEnc = "./";
@@ -2179,32 +2275,28 @@ async function rescanImageSearchRoot() {
     renderImgFileList();
     await renderImageSearchGallery();
     const sec = ((performance.now()-started)/1000).toFixed(1);
-    if (status) status.textContent = "ReScan 완료 · " + dirsDone.toLocaleString() + "개 폴더 · 이미지 " + imageCount.toLocaleString() + "장 · " + sec + "초";
-    akSetScanProgress("ReScan 완료", "폴더 구조와 파일 건수를 act_folder_cache.json에 반영했습니다 · " + sec + "초", 100);
-    // Browser security does not allow overwriting an arbitrary file beside the HTML.
-    // Download the updated cache automatically so the user can replace the existing file.
-    downloadJsonFile(FOLDER_CACHE_FILE, {
-      version: 4, rootFolderName: root.name, selectedPath: imgPictureSettings.selectedPath || "./",
-      updatedAt: now, cache: FOLDER_CACHE
-    });
-    showToast("ReScan 완료 · 업데이트된 act_folder_cache.json을 다운로드했습니다");
+    if (status) status.textContent = tr("rescanDone", {dirs:dirsDone.toLocaleString(),images:imageCount.toLocaleString(),sec});
+    akSetScanProgress(tr("scanDoneTitle"), tr("scanDoneDetail", {sec}), 100);
+    // ReScan은 메모리/localStorage만 갱신합니다.
+    // 실제 JSON 파일 다운로드는 상단의 'JSON 저장' 버튼을 눌렀을 때만 수행합니다.
+    showToast(tr("rescanSaved"));
     setTimeout(() => akSetScanProgress("", "", 0, true), 1800);
   } catch (e) {
     console.error(e);
-    if (status) status.textContent = "ReScan 실패: " + (e.message || e);
-    akSetScanProgress("ReScan 실패", e.message || String(e), 0);
-    showToast("ReScan 실패: " + (e.message || e));
+    if (status) status.textContent = tr("rescanFail", {msg:e.message || e});
+    akSetScanProgress(tr("scanFailTitle"), e.message || String(e), 0);
+    showToast(tr("rescanFail", {msg:e.message || e}));
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "ReScan"; }
+    if (btn) { btn.disabled = false; btn.textContent = tr("rescan"); }
   }
 }
 
 async function scanSelectedDirectory(dirHandle, displayName) {
   const status = document.getElementById("imgSearchStatus");
   const body = document.getElementById("imgSearchTreeBody");
-  if (body) body.innerHTML = '<div class="tree-empty">선택한 폴더 구조 준비 중…</div>';
-  if (status) status.textContent = "빠른 폴더 구조 스캔 중…";
-  akSetScanProgress("폴더 구조 읽는 중…", "파일 내용은 아직 읽지 않습니다.", 5);
+  if (body) body.innerHTML = '<div class="tree-empty">' + tr("preparingTree") + '</div>';
+  if (status) status.textContent = tr("quickScan");
+  akSetScanProgress(tr("scanFolder"), tr("scanDetail"), 5);
 
   const IMAGE_RE = /\.(?:jpg|jpeg|png|webp|gif|bmp)$/i;
   const YIELD_EVERY = 250;
@@ -2233,8 +2325,8 @@ async function scanSelectedDirectory(dirHandle, displayName) {
       else if (IMAGE_RE.test(name)) rootFileHandles.push({ name, handle: entry });
       seen++;
       if (seen % YIELD_EVERY === 0) {
-        if (status) status.textContent = "폴더 구조 스캔 중… " + seen.toLocaleString() + "개 항목";
-        akSetScanProgress("폴더 구조 읽는 중…", seen.toLocaleString() + "개 항목 확인 · 이미지 파일은 아직 열지 않음", Math.min(92, 5 + seen % 87));
+        if (status) status.textContent = tr("scanProgress", {n:seen.toLocaleString()});
+        akSetScanProgress(tr("scanFolder"), tr("treeScanDetail", {n:seen.toLocaleString()}), Math.min(92, 5 + seen % 87));
         await new Promise(r => requestAnimationFrame(r));
       }
     }
@@ -2300,7 +2392,7 @@ async function scanSelectedDirectory(dirHandle, displayName) {
     const rootLabelEl = document.getElementById("imgSearchRootLabel");
     if (rootLabelEl) rootLabelEl.textContent = "📁 " + imgSearchRoot.name;
     const rootStatusEl = document.getElementById("imgSearchStatus");
-    if (rootStatusEl) rootStatusEl.textContent = "선택 경로: " + imgSearchRoot.name;
+    if (rootStatusEl) rootStatusEl.textContent = tr("selectPath", {name:imgSearchRoot.name});
 
     // Use the saved structure cache immediately. The selected root was already
     // enumerated once above, so attach its current direct child handles to cached rows.
@@ -2316,7 +2408,7 @@ async function scanSelectedDirectory(dirHandle, displayName) {
     imgSearchLoaded = true;
 
     renderImageSearchTree();
-    akSetScanProgress("폴더 읽기 완료", "하위 폴더는 클릭할 때 읽습니다.", 100);
+    akSetScanProgress(tr("folderReadDone"), tr("folderReadDoneDetail"), 100);
     setTimeout(() => akSetScanProgress("", "", 0, true), 900);
     await renderImageSearchGallery();
 
@@ -2332,8 +2424,8 @@ async function scanSelectedDirectory(dirHandle, displayName) {
     imgSearchSelectedKey = "";
     renderImageSearchTree();
     renderImageSearchGallery();
-    if (status) status.textContent = "폴더를 읽을 수 없습니다";
-    showToast("폴더 스캔 실패: " + (e.message || e));
+    if (status) status.textContent = tr("cannotRead");
+    showToast(tr("scanFail", {msg:e.message || e}));
   }
 }
 
@@ -2348,7 +2440,7 @@ async function selectImageRootFolder() {
       return;
     } catch (e) {
       if (e && e.name === "AbortError") return;
-      showToast("폴더 선택을 취소했거나 접근할 수 없습니다");
+      showToast(tr("cancelFolder"));
       return;
     }
   }
@@ -2375,7 +2467,7 @@ const IMG_SETTINGS_FILE = "ak_picture_settings.json";
 const IMG_SETTINGS_VERSION = 1.23;
 const IMG_TREE_WIDTH_KEY = "ak_picture_img_tree_width_v2";
 const IMG_VIEW_MODE_KEY = "ak_picture_img_view_mode_v2";
-let imgPictureSettings = { treeWidth: 300, fileListWidth: 45, viewMode: "thumb", favoriteFolders: {} };
+let imgPictureSettings = { treeWidth: 300, fileListWidth: 45, viewMode: "thumb", favoriteFolders: {}, uiLang: "ko" };
 let imgPictureSettingsWritable = false;
 let imgSearchFolderFilter = "";
 
@@ -2503,7 +2595,7 @@ async function restoreSavedImgRoot() {
 }
 
 async function readImgPictureSettings() {
-  const fallback = { treeWidth: 300, fileListWidth: 45, viewMode: "thumb", thumbSize: 160, listSize: 160, selectedPath: "./", rootFolderName: "", favoriteFolders: {} };
+  const fallback = { treeWidth: 300, fileListWidth: 45, viewMode: "thumb", thumbSize: 160, listSize: 160, selectedPath: "./", rootFolderName: "", favoriteFolders: {}, uiLang: "ko" };
   imgPictureSettings = { ...fallback };
   imgPictureSettingsWritable = false;
 
@@ -2523,6 +2615,7 @@ async function readImgPictureSettings() {
       if (Number.isFinite(Number(d.listSize))) imgPictureSettings.listSize = Math.max(80, Math.min(2000, Number(d.listSize)));
       if (typeof d.selectedPath === "string") imgPictureSettings.selectedPath = d.selectedPath;
       if (typeof d.rootFolderName === "string") imgPictureSettings.rootFolderName = d.rootFolderName;
+      if (d.uiLang === "ja" || d.uiLang === "ko") { imgPictureSettings.uiLang = d.uiLang; uiLang = d.uiLang; }
       if (d.favoriteFolders && typeof d.favoriteFolders === "object") imgPictureSettings.favoriteFolders = d.favoriteFolders;
       if (d.treeCollapsed && typeof d.treeCollapsed === "object") window.__imgTreeCollapsed = d.treeCollapsed;
       loaded = true;
@@ -2559,7 +2652,8 @@ function writeImgPictureSettings(options = {}) {
     thumbSize: Math.max(80, Math.min(1000, Math.round(Number(imgPictureSettings.thumbSize) || 160))),
     listSize: Math.max(80, Math.min(2000, Math.round(Number(imgPictureSettings.listSize) || 160))),
     selectedPath: imgPictureSettings.selectedPath || "./",
-    rootFolderName: imgSearchRoot?.name || window.__imgRootHandle?.name || imgPictureSettings.rootFolderName || ""
+    rootFolderName: imgSearchRoot?.name || window.__imgRootHandle?.name || imgPictureSettings.rootFolderName || "",
+    uiLang: imgPictureSettings.uiLang === "ja" ? "ja" : "ko"
   };
   return imgPictureSettings;
 }
@@ -2721,7 +2815,7 @@ function initImageSearchUI() {
     const label = document.getElementById("imgSearchRootLabel");
     if (label) label.textContent = "📁 " + rootName;
     const status = document.getElementById("imgSearchStatus");
-    if (status) status.textContent = "선택 폴더: " + rootName + " · 이미지 " + countImgAll(root) + "장";
+    if (status) status.textContent = tr("selectFolderStatus", {name:rootName,n:countImgAll(root)});
   });
   const thumbSizeVal = document.getElementById("imgSearchThumbSizeVal");
   const listSizeVal = document.getElementById("imgSearchListSizeVal");
@@ -2824,7 +2918,7 @@ function initImageSearchUI() {
     btnFav.addEventListener("click", () => {
       imgSearchFavOnly = !imgSearchFavOnly;
       btnFav.classList.toggle("active", imgSearchFavOnly);
-      btnFav.textContent = imgSearchFavOnly ? "★ 즐겨찾기만" : "☆ 즐겨찾기만";
+      btnFav.textContent = imgSearchFavOnly ? tr("favOnlyOn") : tr("favOnly");
       renderImageSearchTree();
       renderImageSearchGallery();
     });
@@ -2866,6 +2960,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const restored = await restoreSavedImgRoot();
   if (!restored) await scanImageSearchRoot();
+  document.getElementById("btnLangToggle")?.addEventListener("click", toggleUiLanguage);
+  updateUiLanguage();
 });
 
 document.getElementById("btnCacheDownload")?.addEventListener("click", async (e) => {

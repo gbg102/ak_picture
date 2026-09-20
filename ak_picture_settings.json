@@ -1,12 +1,12 @@
 {
   "version": 1.23,
-  "treeWidth": 674,
-  "fileListWidth": 66.78332566369463,
+  "treeWidth": 582,
+  "fileListWidth": 25.04201836302894,
   "viewMode": "thumb",
-  "thumbSize": 270,
+  "thumbSize": 300,
   "listSize": 1000,
-  "selectedPath": "./jmovie/",
-  "rootFolderName": "image_merger",
+  "selectedPath": "./雑誌/週刊 - FLASH (フラッシュ_編集部)/2017/",
+  "rootFolderName": "z_Book",
   "favoriteFolders": {
     "./Pictures/0-1_表紙(JAVポスター)/JAV表紙/ABW/": true,
     "./漫画/[真白しらこ] 先生x教え子4 - おしかけ彼女のおままごと/": true,
@@ -109,5 +109,5 @@
       "./Pictures/縦 (たて)/1. 複数(ふくすう)/": true
     }
   },
-  "updatedAt": "2026-09-19T15:37:10.592Z"
+  "updatedAt": "2026-09-13T11:56:22.435Z"
 }
